@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>When Works? · the hours when everyone is awake, across time zones</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%235b4fc4'/%3E%3Crect x='6' y='7' width='5' height='18' rx='2' fill='%23fff' opacity='.55'/%3E%3Crect x='13.5' y='7' width='5' height='18' rx='2' fill='%23fff' opacity='.55'/%3E%3Crect x='21' y='7' width='5' height='18' rx='2' fill='%23fff' opacity='.55'/%3E%3Crect x='5' y='13' width='22' height='6' rx='2' fill='%23fff'/%3E%3C/svg%3E">
+<meta name="theme-color" content="#5b4fc4">
+<meta name="description" content="Pick a few towns anywhere and a day: see the hours when everyone is at work or at least awake, hour by hour in each town's own time, and which clock changes are about to move the gap.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://matmat202.github.io/when-works/">
+<meta property="og:title" content="When Works?">
+<meta property="og:description" content="The hours when everyone is awake, across time zones, and when the clocks change.">
+<meta name="twitter:card" content="summary">
+<style>
+:root{color-scheme:light;--ground:#f6f6fa;--card:#fff;--ink:#1b1a24;--ink-2:#55536a;--line:#dddbe8;
+  --accent:#5040b8;--work:#d7f0dc;--work-ink:#14532d;--awake:#fdf2cf;--awake-ink:#5c4204;--sleep:#e6e5ee;--sleep-ink:#4a4860;
+  --best:#5040b8;--f-ui:system-ui,-apple-system,"Segoe UI",sans-serif}
+@media (prefers-color-scheme:dark){:root{color-scheme:dark;--ground:#111018;--card:#1a1924;--ink:#ecebf5;--ink-2:#b5b3c9;
+  --line:#2f2d3d;--accent:#a99cff;--work:#173a24;--work-ink:#bdf0cb;--awake:#3a3015;--awake-ink:#f6e3a6;--sleep:#22212d;--sleep-ink:#a8a6bd;
+  --best:#a99cff}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--f-ui);font-size:15px}
+main{max-width:860px;margin:0 auto;padding:16px}
+h1{font-size:24px;margin:4px 0 2px}h1 span{color:var(--accent)}
+h2{font-size:16px;margin:0 0 8px}
+.sub{color:var(--ink-2);font-size:13px;margin:0 0 12px;line-height:1.45}
+a{color:var(--accent)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+input,button{font:inherit;font-size:15px;padding:8px 11px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+button{cursor:pointer;color:var(--accent);font-weight:600}
+button:disabled{opacity:.5;cursor:default}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0 0}
+#towns{list-style:none;margin:0 0 10px;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+#towns li{display:flex;align-items:center;gap:2px;border:1px solid var(--line);border-radius:999px;padding:2px 2px 2px 12px;background:var(--ground)}
+#towns li .home{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);margin-right:4px}
+#towns li button{border:0;background:none;padding:5px 8px;border-radius:999px;font-size:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.box{position:relative;flex:1 1 240px}
+.box input{width:100%}
+.opts{position:absolute;z-index:5;left:0;right:0;top:100%;margin:4px 0 0;padding:4px;list-style:none;background:var(--card);
+  border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.14);max-height:300px;overflow:auto}
+.opts li{padding:8px 10px;border-radius:7px;cursor:pointer}
+.opts li[aria-selected="true"]{background:var(--ground)}
+.opts li.none{color:var(--ink-2);cursor:default}
+.day{display:flex;gap:6px;align-items:center}
+#best p{margin:0 0 6px;line-height:1.45}
+#best .head{font-size:18px;font-weight:650}
+#best ul{margin:4px 0 8px;padding:0 0 0 18px;line-height:1.55;font-variant-numeric:tabular-nums}
+.scroll{overflow-x:auto}
+table{border-collapse:separate;border-spacing:3px;width:100%;font-variant-numeric:tabular-nums;font-size:14px}
+th{font-size:12px;font-weight:650;text-align:left;padding:2px 6px;vertical-align:bottom}
+th small{display:block;font-weight:400;color:var(--ink-2)}
+td{padding:4px 6px;border-radius:6px;white-space:nowrap}
+td.work{background:var(--work);color:var(--work-ink)}
+td.awake{background:var(--awake);color:var(--awake-ink)}
+td.sleep{background:var(--sleep);color:var(--sleep-ink)}
+td small{font-size:11px;margin-left:4px;font-weight:650}
+tr.best td{box-shadow:inset 0 0 0 2px var(--best)}
+tr.now td:first-child{font-weight:700}
+tr.now td:first-child::after{content:" · now";font-size:11px}
+.key{display:flex;gap:14px;font-size:12px;color:var(--ink-2);margin:8px 2px 0;flex-wrap:wrap;align-items:center}
+.key i{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:5px}
+.key i.work{background:var(--work)}.key i.awake{background:var(--awake)}.key i.sleep{background:var(--sleep)}
+.key i.best{box-shadow:inset 0 0 0 2px var(--best)}
+#changes ul{margin:0;padding:0 0 0 18px;line-height:1.55}
+.note{font-size:13px;color:var(--ink-2);margin:8px 0 0;line-height:1.5}
+footer{font-size:12px;color:var(--ink-2);line-height:1.5;margin:18px 2px 8px}
+[hidden]{display:none!important}
+@media (max-width:560px){table{font-size:13px;border-spacing:2px}td{padding:3px 4px}th{padding:2px 4px}}
+</style>
+</head>
+<body>
+<main>
+<h1><span>When Works?</span></h1>
+<p class="sub">Pick a few towns and a day: the hours when everyone is at work, or at least awake, in each town's own time, and the clock changes that are about to move the gap.</p>
+
+<section class="card" aria-label="Towns and day">
+  <ol id="towns" aria-label="Towns, the first is home"></ol>
+  <div class="row">
+    <div class="box">
+      <input id="add" type="search" autocomplete="off" spellcheck="false" placeholder="Add a town or city" role="combobox"
+        aria-label="Add a town" aria-autocomplete="list" aria-expanded="false" aria-controls="addList">
+      <ul id="addList" class="opts" role="listbox" aria-label="Towns to add" hidden></ul>
+    </div>
+    <div class="day">
+      <button type="button" id="prev" aria-label="The day before">‹</button>
+      <input id="date" type="date" aria-label="Day">
+      <button type="button" id="next" aria-label="The day after">›</button>
+      <button type="button" id="today">Today</button>
+    </div>
+  </div>
+</section>
+
+<section class="card" id="best" aria-live="polite"><p class="head">Loading the towns…</p></section>
+
+<section class="card">
+  <div class="scroll"><table id="grid"></table></div>
+  <div class="key">
+    <span><i class="work"></i>at work (9 to 5 on a working day)</span>
+    <span><i class="awake"></i>awake (7 am to 11 pm)</span>
+    <span><i class="sleep"></i>asleep</span>
+    <span><i class="best"></i>the best hours</span>
+  </div>
+  <p class="note">One row per hour of the first town's day: a day its clocks change has 23 or 25. A day name in a cell means that town is on a different day.</p>
+</section>
+
+<section class="card" id="changes"><h2>Clock changes in the next four weeks</h2><ul></ul></section>
+
+<footer>
+  Time zones and clock changes come from your browser's own copy of the IANA time zone database, the one
+  phones and computers set their clocks by. Working days follow each country's weekend as
+  <a href="https://cldr.unicode.org/">Unicode CLDR</a> records it (Friday and Saturday across much of the Gulf, Thursday
+  and Friday in Afghanistan, Friday in Iran, Sunday in India); public holidays are not counted, and
+  <a href="https://matmat202.github.io/whos-off/">Who's Off?</a> lists those. Towns:
+  <a href="https://www.geonames.org/">GeoNames</a> (CC BY 4.0), every place of 15,000+ people. Nothing leaves your browser.
+  <br>Made by Claude for <a href="https://matmat202.github.io/">matmat202</a> ·
+  <a href="https://github.com/matmat202/when-works">source</a>
+</footer>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>
