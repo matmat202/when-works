@@ -11,6 +11,10 @@ Below the table, every **clock change in the next four weeks** in any of the tow
 it does to each gap. In the last week of October, for instance, London is 7 hours ahead of
 California, not 8, because Europe's clocks go back a week before America's.
 
+**Book an hour**: pick a start (or tap a row) and a length, then add it to Google Calendar,
+download an `.ics` for any other calendar, or copy each town's times as text. The event is
+written in UTC, so every guest's calendar shows it in their own time.
+
 - Time zones: the browser's own IANA database, via `Intl`. Days with a clock change have 23 or
   25 rows; a town whose clocks jump at midnight (Havana) starts its day at 1 am.
 - Working days: each country's weekend from [Unicode CLDR](https://cldr.unicode.org/), so

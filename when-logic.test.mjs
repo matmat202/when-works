@@ -96,5 +96,37 @@ eq('url round trip', L.decodeState(s), { towns: ['Palo Alto, California, United 
 eq('url: a bad date is dropped, towns capped', L.decodeState('?d=2026-13-99&' + 'abcdefgh'.split('').map((x) => `t=${x}`).join('&')),
   { towns: ['a', 'b', 'c', 'd', 'e', 'f'], ymd: null });
 
+// ---- one hour, to a calendar ------------------------------------------------------------
+// 27 Oct 2026, 7 am in Palo Alto (PDT, -7) is 14:00 UTC: the shot's Palo Alto/London/New Delhi day.
+const tz3 = [{ label: 'Palo Alto, California, United States', tz: 'America/Los_Angeles' },
+  { label: 'London, England, United Kingdom', tz: 'Europe/London' }, { label: 'New Delhi, Delhi, India', tz: 'Asia/Kolkata' }];
+const at = Date.UTC(2026, 9, 27, 14);
+eq('slotLines: each town its own clock', L.slotLines(tz3, at, 60),
+  ['Palo Alto: 7 am – 8 am, Tue 27 Oct', 'London: 2 pm – 3 pm, Tue 27 Oct', 'New Delhi: 7:30 pm – 8:30 pm, Tue 27 Oct']);
+eq('slotLines: 90 min, and a town already on the next day', L.slotLines([tz3[0], { label: 'Tokyo, Japan', tz: 'Asia/Tokyo' }], Date.UTC(2026, 9, 28, 0), 90),
+  ['Palo Alto: 5 pm – 6:30 pm, Tue 27 Oct', 'Tokyo: 9 am – 10:30 am, Wed 28 Oct']);
+eq('slotTitle', L.slotTitle(tz3), 'Call: Palo Alto / London / New Delhi');
+eq('utcStamp', L.utcStamp(at), '20261027T140000Z');
+const gq = new URL(L.gcalUrl({ title: 'Call: A & B', ms: at, mins: 30, details: 'x\ny' }));
+eq('gcal: host, action, dates, text', [gq.origin + gq.pathname, gq.searchParams.get('action'), gq.searchParams.get('dates'), gq.searchParams.get('text'), gq.searchParams.get('details')],
+  ['https://calendar.google.com/calendar/render', 'TEMPLATE', '20261027T140000Z/20261027T143000Z', 'Call: A & B', 'x\ny']);
+eq('icsText escapes \\ ; , and newlines', L.icsText('a\\b;c,d\ne'), 'a\\\\b\\;c\\,d\\ne');
+const long = 'DESCRIPTION:' + 'Tromsø, '.repeat(20);
+const folded = L.icsFold(long);
+eq('icsFold: no line over 75 octets', folded.split('\r\n').map((l) => new TextEncoder().encode(l).length <= 75), folded.split('\r\n').map(() => true));
+eq('icsFold: unfolds to the same line', folded.replace(/\r\n /g, ''), long);
+eq('icsFold: a short line is left alone', L.icsFold('VERSION:2.0'), 'VERSION:2.0');
+// Read the file back the way a calendar does: split on CRLF, unfold, take NAME:VALUE, unescape TEXT.
+const cal = L.ics({ title: 'Call: Palo Alto / London', ms: at, mins: 60, details: 'Palo Alto: 7 am – 8 am, Tue 27 Oct\nLondon: 2 pm – 3 pm; then dinner', url: 'https://x.test/?t=a', stampMs: Date.UTC(2026, 9, 27, 10) });
+const props = {};
+for (const ln of cal.replace(/\r\n[ \t]/g, '').split('\r\n').filter(Boolean)) { const k = ln.indexOf(':'); (props[ln.slice(0, k)] ||= []).push(ln.slice(k + 1)); }
+const unesc = (v) => v.replace(/\\(.)/g, (_, c) => (c === 'n' || c === 'N' ? '\n' : c));
+eq('ics: CRLF everywhere, ends with one', [/(^|[^\r])\n/.test(cal), cal.endsWith('END:VCALENDAR\r\n')], [false, true]);
+eq('ics: one event, start and end in UTC', [props.BEGIN, props.DTSTART, props.DTEND, props.DTSTAMP],
+  [['VCALENDAR', 'VEVENT'], ['20261027T140000Z'], ['20261027T150000Z'], ['20261027T100000Z']]);
+eq('ics: summary and description read back', [unesc(props.SUMMARY[0]), unesc(props.DESCRIPTION[0])],
+  ['Call: Palo Alto / London', 'Palo Alto: 7 am – 8 am, Tue 27 Oct\nLondon: 2 pm – 3 pm; then dinner']);
+eq('ics: required VERSION, PRODID, UID', [props.VERSION, !!props.PRODID, /@when-works$/.test(props.UID?.[0])], [['2.0'], true, true]);
+
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

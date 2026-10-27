@@ -3,7 +3,7 @@ import * as L from './when-logic.js';
 
 const $ = (id) => document.getElementById(id);
 let PLACES = [], ZONES = [], WEEKEND = {};
-const state = { towns: [], ymd: null };
+const state = { towns: [], ymd: null, pick: null, mins: 60 };
 
 const homeToday = () => L.wall(state.towns[0].tz, Date.now()).ymd;
 const el = (tag, attrs = {}, ...kids) => {
@@ -89,7 +89,9 @@ function drawGrid(g, b) {
   const best = new Set(b.runs.flatMap(([i, j]) => Array.from({ length: j - i + 1 }, (_, n) => i + n)));
   const now = Date.now();
   const rows = g.map((r, i) => {
-    const tr = el('tr', { class: [best.has(i) && state.towns.length > 1 ? 'best' : '', now >= r.ms && now < r.ms + L.HOUR ? 'now' : ''].join(' ').trim() || null });
+    const tr = el('tr', { class: [best.has(i) && state.towns.length > 1 ? 'best' : '', now >= r.ms && now < r.ms + L.HOUR ? 'now' : '',
+      r.ms === state.pick && state.towns.length > 1 ? 'picked' : ''].join(' ').trim() || null });
+    tr.addEventListener('click', () => { state.pick = r.ms; drawSlot(g); drawGrid(g, b); });
     r.cells.forEach((c, k) => {
       const mark = L.dayMark(c, r.cells[0]);
       const td = el('td', { class: c.cls, title: `${L.short(state.towns[k].label)}: ${CLS[c.cls]}` }, L.time(c.min));
@@ -99,6 +101,39 @@ function drawGrid(g, b) {
     return tr;
   });
   t.replaceChildren(el('thead', {}, head), el('tbody', {}, ...rows));
+}
+
+// ---- one hour, to a calendar ----------------------------------------------------------
+
+// The pick survives a redraw only if it is still a row of the day; otherwise the start of the
+// longest best stretch, as the summary above names it.
+function pickIn(g, b) {
+  if (g.some((r) => r.ms === state.pick)) return;
+  const len = ([i, j]) => j - i + 1;
+  const run = [...b.runs].sort((x, y) => len(y) - len(x) || x[0] - y[0])[0];
+  state.pick = g[run ? run[0] : 0].ms;
+}
+
+function drawSlot(g) {
+  const box = $('slot');
+  box.hidden = state.towns.length < 2;
+  if (box.hidden) return;
+  const start = $('slotStart'), len = $('slotLen'), home = state.towns[0];
+  start.replaceChildren(...g.map((r) => {
+    const w = r.cells[0];
+    return el('option', { value: r.ms }, `${L.time(w.min)} in ${L.short(home.label)}`);
+  }));
+  start.value = String(state.pick);
+  len.replaceChildren(...L.LENGTHS.map((m) => el('option', { value: m }, m < 60 ? `${m} min` : L.hm(m))));
+  len.value = String(state.mins);
+  const lines = L.slotLines(state.towns, state.pick, state.mins), title = L.slotTitle(state.towns);
+  const details = `${lines.join('\n')}\n\nWhen Works? ${location.href}`;
+  $('slotLines').replaceChildren(...lines.map((s) => el('li', {}, s)));
+  $('gcal').href = L.gcalUrl({ title, ms: state.pick, mins: state.mins, details });
+  const cal = L.ics({ title, ms: state.pick, mins: state.mins, details, url: location.href, stampMs: Date.now() });
+  $('icsLink').href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(cal);
+  $('copied').textContent = '';
+  box.dataset.text = `${title}\n${lines.join('\n')}`;
 }
 
 // ---- the clock changes -----------------------------------------------------------------
@@ -133,6 +168,8 @@ function draw() {
   const g = L.grid(state.towns, state.ymd);
   const b = L.best(g);
   drawBest(g, b);
+  pickIn(g, b);
+  drawSlot(g);
   drawGrid(g, b);
   drawChanges();
 }
@@ -183,6 +220,13 @@ function wire() {
   $('prev').addEventListener('click', () => { state.ymd = L.addDays(state.ymd, -1); draw(); });
   $('next').addEventListener('click', () => { state.ymd = L.addDays(state.ymd, 1); draw(); });
   $('today').addEventListener('click', () => { state.ymd = homeToday(); draw(); });
+  const redraw = () => { const g = L.grid(state.towns, state.ymd); drawSlot(g); drawGrid(g, L.best(g)); };
+  $('slotStart').addEventListener('change', () => { state.pick = Number($('slotStart').value); redraw(); });
+  $('slotLen').addEventListener('change', () => { state.mins = Number($('slotLen').value); redraw(); });
+  $('copy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText($('slot').dataset.text); $('copied').textContent = 'Copied.'; }
+    catch { $('copied').textContent = 'Could not copy: select the lines above instead.'; }
+  });
   setInterval(() => { if (state.towns.length) drawGrid(L.grid(state.towns, state.ymd), L.best(L.grid(state.towns, state.ymd))); }, 60000);
 }
 

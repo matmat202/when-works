@@ -249,3 +249,58 @@ export function decodeState(search) {
   const real = /^\d{4}-\d{2}-\d{2}$/.test(d || '') && new Date(utcOf(d)).toISOString().slice(0, 10) === d;
   return { towns, ymd: real ? d : null };
 }
+
+// ---- one hour, carried out: to a calendar, or as text -----------------------------------
+// The event is written in UTC ("...Z"), so every calendar shows it in its own zone and no
+// VTIMEZONE has to be shipped. The towns' wall clocks go in the description for the humans.
+
+export const LENGTHS = [30, 60, 90];   // minutes a slot can last
+
+// Each town's wall clock over [ms, ms + mins): "London: 4 pm – 5 pm, Wed 28 Oct".
+export function slotLines(towns, ms, mins) {
+  return towns.map((t) => {
+    const a = wall(t.tz, ms), b = wall(t.tz, ms + mins * MIN);
+    return `${short(t.label)}: ${time(a.min)} – ${time(b.min)}, ${dateWords(a.ymd)}`;
+  });
+}
+
+export const slotTitle = (towns) => `Call: ${towns.map((t) => short(t.label)).join(' / ')}`;
+
+// 1793116800000 -> "20261028T160000Z".
+export const utcStamp = (ms) => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+
+// Google Calendar's prefilled "new event" page.
+export function gcalUrl({ title, ms, mins, details }) {
+  const q = new URLSearchParams({ action: 'TEMPLATE', text: title, dates: `${utcStamp(ms)}/${utcStamp(ms + mins * MIN)}`, details });
+  return `https://calendar.google.com/calendar/render?${q}`;
+}
+
+// RFC 5545 3.3.11 TEXT: backslash, semicolon, comma and newline are escaped.
+export const icsText = (s) => String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+
+// RFC 5545 3.1: a line over 75 octets folds with CRLF + space, never inside a UTF-8 character.
+export function icsFold(line) {
+  const enc = new TextEncoder(), parts = [];
+  let cur = '', n = 0;
+  for (const ch of line) {
+    const b = enc.encode(ch).length;
+    if (n + b > (parts.length ? 74 : 75)) { parts.push(cur); cur = ''; n = 0; }
+    cur += ch; n += b;
+  }
+  parts.push(cur);
+  return parts.join('\r\n ');
+}
+
+export function ics({ title, ms, mins, details, url, stampMs }) {
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//when-works//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${utcStamp(ms)}-${mins}-${title.replace(/[^A-Za-z0-9]+/g, '-').toLowerCase()}@when-works`,
+    `DTSTAMP:${utcStamp(stampMs)}`,
+    `DTSTART:${utcStamp(ms)}`,
+    `DTEND:${utcStamp(ms + mins * MIN)}`,
+    `SUMMARY:${icsText(title)}`,
+    `DESCRIPTION:${icsText(details)}`];
+  if (url) lines.push(`URL:${url}`);
+  lines.push('END:VEVENT', 'END:VCALENDAR');
+  return lines.map(icsFold).join('\r\n') + '\r\n';
+}

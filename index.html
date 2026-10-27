@@ -66,6 +66,13 @@ tr.now td:first-child::after{content:" · now";font-size:11px}
 #changes ul{margin:0;padding:0 0 0 18px;line-height:1.55}
 .note{font-size:13px;color:var(--ink-2);margin:8px 0 0;line-height:1.5}
 footer{font-size:12px;color:var(--ink-2);line-height:1.5;margin:18px 2px 8px}
+#slot h2{margin-bottom:10px}
+#slot label{font-size:14px;color:var(--ink-2);display:flex;gap:6px;align-items:center}
+select{font:inherit;font-size:15px;padding:8px 11px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+#slotLines{margin:10px 0;padding:0 0 0 18px;line-height:1.55;font-variant-numeric:tabular-nums}
+.btn{display:inline-block;font-size:15px;padding:8px 11px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--accent);font-weight:600;text-decoration:none}
+#grid tbody tr{cursor:pointer}
+tr.picked td{outline:2px dashed var(--ink-2);outline-offset:-1px}
 [hidden]{display:none!important}
 @media (max-width:560px){table{font-size:13px;border-spacing:2px}td{padding:3px 4px}th{padding:2px 4px}}
 </style>
@@ -93,6 +100,22 @@ footer{font-size:12px;color:var(--ink-2);line-height:1.5;margin:18px 2px 8px}
 </section>
 
 <section class="card" id="best" aria-live="polite"><p class="head">Loading the towns…</p></section>
+
+<section class="card" id="slot" hidden>
+  <h2>Book an hour</h2>
+  <div class="row">
+    <label>Starts <select id="slotStart" aria-label="Start, in the home town's time"></select></label>
+    <label>for <select id="slotLen" aria-label="How long"></select></label>
+  </div>
+  <ul id="slotLines"></ul>
+  <div class="row">
+    <a id="gcal" class="btn" target="_blank" rel="noopener">Add to Google Calendar</a>
+    <a id="icsLink" class="btn" download="when-works.ics">Download .ics</a>
+    <button type="button" id="copy">Copy the times</button>
+    <span id="copied" class="note" aria-live="polite"></span>
+  </div>
+  <p class="note">The event is saved in UTC, so each person's calendar shows it in their own time. Tap a row of the table to start there.</p>
+</section>
 
 <section class="card">
   <div class="scroll"><table id="grid"></table></div>
