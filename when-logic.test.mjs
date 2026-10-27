@@ -128,5 +128,31 @@ eq('ics: summary and description read back', [unesc(props.SUMMARY[0]), unesc(pro
   ['Call: Palo Alto / London', 'Palo Alto: 7 am – 8 am, Tue 27 Oct\nLondon: 2 pm – 3 pm; then dinner']);
 eq('ics: required VERSION, PRODID, UID', [props.VERSION, !!props.PRODID, /@when-works$/.test(props.UID?.[0])], [['2.0'], true, true]);
 
+// --- exact edges ---------------------------------------------------------------------------
+// LA leaves summer time at 2026-11-01 09:00 UTC. Sampling is every 6 h, then halved: the change
+// has to be found in the first window, in one that starts past a sample, and never at `to` itself.
+const LA = 'America/Los_Angeles', T = Date.UTC(2026, 10, 1, 9), HR = 3600e3;
+eq('transitions: half an hour in, 6.5 h in, exactly at `to` (out), and the last window', [L.transitions(LA, T - 0.5 * HR, T + HR), L.transitions(LA, T - 6.5 * HR, T + HR),
+  L.transitions(LA, T - HR, T), L.transitions(LA, T - 11 * HR, T + HR)].map((x) => x.map((e) => [e.ms, e.before, e.after])),
+  [[[T, -420, -480]], [[T, -420, -480]], [], [[T, -420, -480]]]);
+// Every EU zone leaves summer time at 01:00 UTC on 25 October: two changes at one instant, in zone order.
+eq('two changes at one instant, in a fixed order', L.changes([{ tz: LA, label: 'h' }, { tz: 'Europe/London', label: 'l' }, { tz: 'Europe/Berlin', label: 'b' }], '2026-10-20')
+  .map((e) => [new Date(e.ms).toISOString(), e.tz]), [['2026-10-25T01:00:00.000Z', 'Europe/Berlin'], ['2026-10-25T01:00:00.000Z', 'Europe/London'], ['2026-11-01T09:00:00.000Z', LA]]);
+eq('changes look 28 days ahead, not 29', [L.changes([{ tz: LA, label: 'x' }], '2026-10-04').length, L.changes([{ tz: LA, label: 'x' }], '2026-10-05').length], [0, 1]);
+eq('time past midnight wraps', [L.time(1440), L.time(1500)], ['12 am', '1 am']);
+const named = [['Parisville', '', 'X', 'XX', 9, 0], ['Paris', 'Île-de-France', 'France', 'FR', 8, 0], ['Paris Hill', '', 'X', 'XX', 7, 0], ['Paris', 'Texas', 'United States', 'US', 6, 0]];
+eq('whole-name matches before the more populous prefixes', L.matchPlaces(named, 'paris').map(L.placeLabel),
+  ['Paris, Île-de-France, France', 'Paris, Texas, United States', 'Parisville, X', 'Paris Hill, X']);
+eq('eight by default', L.matchPlaces(Array.from({ length: 12 }, (_, i) => [`Town${i}`, '', 'X', 'XX', 1, 0]), 'town').length, 8);
+const pa = L.placeByLabel(doc.places, 'Palo Alto, California, United States');
+eq('P names the columns', [pa[L.P.NAME], pa[L.P.A1], pa[L.P.CN], pa[L.P.CC], pa[L.P.POP], doc.zones[pa[L.P.TZ]]], ['Palo Alto', 'California', 'United States', 'US', 66853, LA]);
+eq('biggest in the first zone of the list, and in none', [L.placeLabel(L.biggestIn(doc.places, doc.zones, doc.zones[0])), L.biggestIn(doc.places, doc.zones, 'Mars/Olympus')],
+  [L.placeLabel(doc.places.find((p) => p[L.P.TZ] === 0)), null]);
+eq('a long town is clipped to 120', L.decodeState(`?t=${'x'.repeat(300)}`).towns[0].length, 120);
+eq('the lengths on offer', L.LENGTHS, [30, 60, 90]);
+// RFC 5545: 75 octets on the first line, then 74 after the leading space.
+const foldLens = (n) => L.icsFold('x'.repeat(n)).split('\r\n ').map((x) => x.length);
+eq('icsFold: exactly 75 stays one line, then 75 + 74 + rest', [foldLens(75), foldLens(76), foldLens(150)], [[75], [75, 1], [75, 74, 1]]);
+
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
