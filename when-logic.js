@@ -68,8 +68,21 @@ export const weekendOf = (cc, table) => (table && table[cc]) || WORLD_WEEKEND;
 
 // A town's public holidays, from data/holidays.json: { off: { ymd: name }, work: [ymd] }, where
 // `work` is the weekend days its country makes into working days (China moves several a year).
-// No table (still loading, or a country without one) means no holidays.
-export const holidaysOf = (cc, table) => ({ off: (table && table.off && table.off[cc]) || {}, work: (table && table.work && table.work[cc]) || [] });
+// `off` is the country's nationwide holidays plus, given the town's admin1, the ones held only
+// in its state or province (table.a1 names the subdivision, table.reg holds its days), each
+// named with the admin1 so a card can say "Victoria Day (Ontario)". A nationwide holiday on the
+// same date keeps its own name. No table (still loading, or a country without one) means no
+// holidays; an admin1 the table does not know means nationwide holidays only.
+export function holidaysOf(cc, table, a1) {
+  const nat = (table && table.off && table.off[cc]) || {};
+  const work = (table && table.work && table.work[cc]) || [];
+  const code = a1 && table && table.a1 && table.a1[cc] && table.a1[cc][a1];
+  const reg = code && table.reg && table.reg[cc] && table.reg[cc][code];
+  if (!reg) return { off: nat, work };
+  const off = { ...nat };
+  for (const [ymd, name] of Object.entries(reg)) if (!off[ymd]) off[ymd] = `${name} (${a1})`;
+  return { off, work };
+}
 
 // Is a town's local day a day off? A public holiday is; a weekend day is, unless it was made a working day.
 export function dayOff(w, weekend, hol) {
@@ -261,7 +274,7 @@ export function biggestIn(places, zones, tz) {
 
 export const toTown = (p, zones, weekend, holidays) => ({
   label: placeLabel(p), cc: p[P.CC], tz: zones[p[P.TZ]], weekend: weekendOf(p[P.CC], weekend),
-  hol: holidaysOf(p[P.CC], holidays),
+  hol: holidaysOf(p[P.CC], holidays, p[P.A1]),
 });
 
 // ---- the URL: ?t=Palo Alto, California, United States&t=London, …&d=2026-10-27 ----------

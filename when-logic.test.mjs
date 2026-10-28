@@ -161,7 +161,7 @@ const PA = town('Palo Alto, California, United States'), LDN = town('London, Eng
 const TYO = town('Tokyo, Japan'), SHA = town('Shanghai, China'), BER = town('Berlin, State of Berlin, Germany');
 eq('the table covers 2026 and 2027', HOL.years, [2026, 2027]);
 eq('Thanksgiving is a US holiday', PA.hol.off['2026-11-26'], 'Thanksgiving Day');
-eq('a regional holiday is left out (Reformation Day, 9 German states)', BER.hol.off['2026-10-31'], undefined);
+eq('another state\'s holiday is left out (Reformation Day: 9 states, not Berlin)', BER.hol.off['2026-10-31'], undefined);
 eq('a national one is kept (Unity Day)', BER.hol.off['2026-10-03'], 'German Unity Day');
 eq('no table, no holidays', L.holidaysOf('US', null), { off: {}, work: [] });
 eq('dayOff: a weekday holiday, a weekend, a weekend made a working day, a plain weekday',
@@ -202,6 +202,27 @@ eq('Shanghai works Saturday 10 Oct 2026', L.classify({ ymd: '2026-10-10', min: 6
   eq('a year the table lacks is named, not passed over', L.holidayNotes([PA, LDN], L.grid([PA, LDN], '2028-07-04'), HOL.years),
     { notes: [], unknown: [2028] });
   eq('a plain day has no notes', L.holidayNotes([PA, LDN], L.grid([PA, LDN], '2026-11-25'), HOL.years), { notes: [], unknown: [] });
+}
+
+{
+  // Regional holidays: a town gets its own state's or province's, named with it, on top of the
+  // country's. London's Easter Monday is England's (Scotland works it), so it is regional here.
+  const TOR = town('Toronto, Ontario, Canada'), MUC = town('Munich, Bavaria, Germany'), HAM = town('Hamburg, Germany');
+  const DEL = town('Delhi, India');
+  eq('London has Easter Monday, as England\'s', LDN.hol.off['2027-03-29'], 'Easter Monday (England)');
+  eq('Toronto has Victoria Day, as Ontario\'s', TOR.hol.off['2026-05-18'], 'Victoria Day (Ontario)');
+  eq('Munich has Epiphany, Hamburg does not', [MUC.hol.off['2027-01-06'], HAM.hol.off['2027-01-06']], ['Epiphany (Bavaria)', undefined]);
+  eq('a regional town keeps its national holidays', [TOR.hol.off['2026-07-01'], MUC.hol.off['2026-10-03']], ['Canada Day', 'German Unity Day']);
+  eq('an admin1 the table lacks gets nationwide holidays only (Delhi)', DEL.hol.off, HOL.off.IN);
+  const T = { off: { XX: { '2026-01-01': 'A' } }, work: {}, a1: { XX: { North: 'n', South: 's' } },
+    reg: { XX: { n: { '2026-01-01': 'B', '2026-01-02': 'C' }, s: { '2026-01-03': 'D' } } } };
+  eq('a nationwide name wins its date; the region\'s other days come in', L.holidaysOf('XX', T, 'North').off, { '2026-01-01': 'A', '2026-01-02': 'C (North)' });
+  eq('each admin1 gets its own subdivision', L.holidaysOf('XX', T, 'South').off, { '2026-01-01': 'A', '2026-01-03': 'D (South)' });
+  eq('an unknown admin1, or none, is nationwide only', [L.holidaysOf('XX', T, 'East').off, L.holidaysOf('XX', T).off], [{ '2026-01-01': 'A' }, { '2026-01-01': 'A' }]);
+  eq('the nationwide table is not written into', HOL.off.GB['2027-03-29'], undefined);
+  const g = L.grid([TOR, LDN], '2026-05-18');
+  eq('Victoria Day: Toronto has no working hour, London does', [g.some((r) => r.cells[0].cls === 'work'), g.some((r) => r.cells[1].cls === 'work')], [false, true]);
+  eq('Victoria Day: the note names Ontario', L.holidayNotes([TOR, LDN], g, HOL.years).notes, [{ k: 0, ymd: '2026-05-18', kind: 'off', name: 'Victoria Day (Ontario)' }]);
 }
 
 console.log(`${pass} passed, ${fail} failed`);

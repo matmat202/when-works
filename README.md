@@ -18,7 +18,9 @@ written in UTC, so every guest's calendar shows it in their own time.
 - Time zones: the browser's own IANA database, via `Intl`. Days with a clock change have 23 or
   25 rows; a town whose clocks jump at midnight (Havana) starts its day at 1 am.
 - Working days: each country's weekend from [Unicode CLDR](https://cldr.unicode.org/), so
-  Riyadh's Friday and Kabul's Thursday are not working days. Public holidays are not counted.
+  Riyadh's Friday and Kabul's Thursday are not working days. Public holidays are days off, the
+  country's and the town's own state's or province's, from [Who's Off?](https://matmat202.github.io/whos-off/)
+  (python-holidays); not Italy's or France's local ones, which are set by province or city.
 - Towns: [GeoNames](https://www.geonames.org/) (CC BY 4.0), every place of 15,000+ people.
 
 Checked: `node when-logic.test.mjs` holds every row of seven test days to
