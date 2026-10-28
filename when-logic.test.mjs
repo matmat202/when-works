@@ -88,7 +88,7 @@ eq('"tromso" finds Tromsø', L.short(L.placeLabel(L.matchPlaces(doc.places, 'tro
 eq('"london, can" finds Ontario', L.placeLabel(L.matchPlaces(doc.places, 'london, can')[0]), 'London, Ontario, Canada');
 for (const c of F.cases) for (const t of c.towns) {
   const p = L.placeByLabel(doc.places, t.label);
-  eq(`${t.label} is a town with the case's zone`, p && L.toTown(p, doc.zones, doc.weekend), { label: t.label, cc: t.cc, tz: t.tz, weekend: t.weekend });
+  eq(`${t.label} is a town with the case's zone`, p && L.toTown(p, doc.zones, doc.weekend), { label: t.label, cc: t.cc, tz: t.tz, weekend: t.weekend, hol: { off: {}, work: [] } });
 }
 eq('biggest town in Asia/Kolkata', L.placeLabel(L.biggestIn(doc.places, doc.zones, 'Asia/Kolkata')), 'Mumbai, Maharashtra, India');
 const s = L.encodeState({ towns: ['Palo Alto, California, United States', 'London, England, United Kingdom'], ymd: '2026-11-02' });
@@ -153,6 +153,56 @@ eq('the lengths on offer', L.LENGTHS, [30, 60, 90]);
 // RFC 5545: 75 octets on the first line, then 74 after the leading space.
 const foldLens = (n) => L.icsFold('x'.repeat(n)).split('\r\n ').map((x) => x.length);
 eq('icsFold: exactly 75 stays one line, then 75 + 74 + rest', [foldLens(75), foldLens(76), foldLens(150)], [[75], [75, 1], [75, 74, 1]]);
+
+// ---- public holidays (data/holidays.json, cut from Who's Off's table by build.py) ----------
+const HOL = JSON.parse(readFileSync(join(here, 'data', 'holidays.json'), 'utf8'));
+const town = (label) => L.toTown(L.placeByLabel(doc.places, label), doc.zones, doc.weekend, HOL);
+const PA = town('Palo Alto, California, United States'), LDN = town('London, England, United Kingdom');
+const TYO = town('Tokyo, Japan'), SHA = town('Shanghai, China'), BER = town('Berlin, State of Berlin, Germany');
+eq('the table covers 2026 and 2027', HOL.years, [2026, 2027]);
+eq('Thanksgiving is a US holiday', PA.hol.off['2026-11-26'], 'Thanksgiving Day');
+eq('a regional holiday is left out (Reformation Day, 9 German states)', BER.hol.off['2026-10-31'], undefined);
+eq('a national one is kept (Unity Day)', BER.hol.off['2026-10-03'], 'German Unity Day');
+eq('no table, no holidays', L.holidaysOf('US', null), { off: {}, work: [] });
+eq('dayOff: a weekday holiday, a weekend, a weekend made a working day, a plain weekday',
+  [L.dayOff({ ymd: '2026-11-26', wd: 4 }, PA.weekend, PA.hol), L.dayOff({ ymd: '2026-11-28', wd: 6 }, PA.weekend, PA.hol),
+    L.dayOff({ ymd: '2026-10-10', wd: 6 }, SHA.weekend, SHA.hol), L.dayOff({ ymd: '2026-11-25', wd: 3 }, PA.weekend, PA.hol)],
+  [true, true, false, false]);
+eq('10 am on a holiday is not work, without the table it is',
+  [L.classify({ ymd: '2026-11-26', min: 600, wd: 4 }, PA.weekend, PA.hol), L.classify({ ymd: '2026-11-26', min: 600, wd: 4 }, PA.weekend)], ['awake', 'work']);
+eq('Shanghai works Saturday 10 Oct 2026', L.classify({ ymd: '2026-10-10', min: 600, wd: 6 }, SHA.weekend, SHA.hol), 'work');
+{
+  // Thanksgiving: Palo Alto is off, London is not, so nobody is at work together.
+  const g = L.grid([PA, LDN], '2026-11-26');
+  eq('Thanksgiving: Palo Alto has no working hour', g.some((r) => r.cells[0].cls === 'work'), false);
+  eq('Thanksgiving: London still works', g.some((r) => r.cells[1].cls === 'work'), true);
+  // New York and London share 9 am to noon in New York on a working day: not on Thanksgiving.
+  const NYC = town('New York City, New York, United States');
+  eq('Thanksgiving: New York/London best is awake, not work', L.best(L.grid([NYC, LDN], '2026-11-26')).kind, 'awake');
+  eq('Thanksgiving: one note, Palo Alto', L.holidayNotes([PA, LDN], g, HOL.years),
+    { notes: [{ k: 0, ymd: '2026-11-26', kind: 'off', name: 'Thanksgiving Day' }], unknown: [] });
+  // The day before, everyone is at work again (the holiday is one day, not the week).
+  eq('the day before Thanksgiving is a working day', L.best(L.grid([NYC, LDN], '2026-11-25')).kind, 'work');
+}
+{
+  // Palo Alto's Monday 2 Nov ends on Tokyo's Tuesday 3 Nov, Culture Day: the holiday is read on
+  // Tokyo's own date, not the home town's.
+  const g = L.grid([PA, TYO], '2026-11-02');
+  const tokyoWork = g.filter((r) => r.cells[1].min >= 540 && r.cells[1].min < 1020);
+  eq('Tokyo 9-5 on 3 Nov is on the grid', tokyoWork.length > 0 && tokyoWork.every((r) => r.cells[1].ymd === '2026-11-03'), true);
+  eq('...and is not work, being Culture Day', tokyoWork.map((r) => r.cells[1].cls).filter((c) => c === 'work'), []);
+  // A day later, Culture Day shows only as Tokyo's evening (5 pm on): no working hour is lost, so no note.
+  eq('a holiday seen only outside working hours is not noted', L.holidayNotes([PA, TYO], L.grid([PA, TYO], '2026-11-03'), HOL.years).notes, []);
+  eq('Culture Day note, on Tokyo\'s date', L.holidayNotes([PA, TYO], g, HOL.years).notes, [{ k: 1, ymd: '2026-11-03', kind: 'off', name: 'Culture Day' }]);
+}
+{
+  const g = L.grid([SHA, LDN], '2026-10-10');
+  eq('a made-up working Saturday is noted', L.holidayNotes([SHA, LDN], g, HOL.years).notes, [{ k: 0, ymd: '2026-10-10', kind: 'work', name: null }]);
+  eq('...and Shanghai has working hours that Saturday', g.some((r) => r.cells[0].cls === 'work'), true);
+  eq('a year the table lacks is named, not passed over', L.holidayNotes([PA, LDN], L.grid([PA, LDN], '2028-07-04'), HOL.years),
+    { notes: [], unknown: [2028] });
+  eq('a plain day has no notes', L.holidayNotes([PA, LDN], L.grid([PA, LDN], '2026-11-25'), HOL.years), { notes: [], unknown: [] });
+}
 
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

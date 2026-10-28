@@ -3,6 +3,7 @@ import * as L from './when-logic.js';
 
 const $ = (id) => document.getElementById(id);
 let PLACES = [], ZONES = [], WEEKEND = {};
+let HOLIDAYS = null; // data/holidays.json, or null if it failed to load (then only weekends count)
 let MORE = null; // while the page runs on seed.json: what a search with no match says
 const state = { towns: [], ymd: null, pick: null, mins: 60 };
 
@@ -54,6 +55,21 @@ function span(g, [i, j], k) {
   return `${L.time(a.min)} – ${L.time(b.min)}${mark ? ` (${mark})` : ''}`;
 }
 
+// Public holidays and moved working days that change the hours above, one line each.
+const country = (t) => t.label.split(', ').at(-1);
+function holidayLines(g) {
+  if (!HOLIDAYS) return [el('p', { class: 'note' }, 'Public holidays could not be loaded, so only weekends are counted as days off.')];
+  const { notes, unknown } = L.holidayNotes(state.towns, g, HOLIDAYS.years);
+  const out = notes.map((h) => {
+    const t = state.towns[h.k];
+    return el('p', { class: 'hol' }, h.kind === 'off'
+      ? `${L.short(t.label)} has a public holiday on ${L.dateWords(h.ymd)}, ${h.name}, so it is counted as off work that day.`
+      : `${L.short(t.label)} works on ${L.dateWords(h.ymd)}, a weekend day ${country(t)} moved to make up for a holiday.`);
+  });
+  if (unknown.length) out.push(el('p', { class: 'note' }, `Public holidays are known for ${HOLIDAYS.years.join(' and ')} only, so in ${unknown.join(' and ')} only weekends count as days off.`));
+  return out;
+}
+
 function drawBest(g, b) {
   const box = $('best'), n = state.towns.length;
   const home = L.short(state.towns[0].label);
@@ -65,7 +81,7 @@ function drawBest(g, b) {
   else if (b.kind === 'work') head = `Everyone is at work for ${hrs(runs[0])}: ${span(g, runs[0], 0)} in ${home}.`;
   else if (b.kind === 'awake') head = `No hour has everyone at work. Everyone is awake for ${hrs(runs[0])}: ${span(g, runs[0], 0)} in ${home}.`;
   else head = `No hour has everyone awake. The fewest asleep is ${b.asleep} of ${n}: ${span(g, runs[0], 0)} in ${home}.`;
-  const kids = [el('p', { class: 'head' }, head)];
+  const kids = [el('p', { class: 'head' }, head), ...holidayLines(g)];
   if (n > 1) {
     runs.forEach((r, ri) => {
       if (ri) kids.push(el('p', {}, `Also ${span(g, r, 0)} in ${home} (${hrs(r)}):`));
@@ -95,7 +111,8 @@ function drawGrid(g, b) {
     tr.addEventListener('click', () => { state.pick = r.ms; drawSlot(g); drawGrid(g, b); });
     r.cells.forEach((c, k) => {
       const mark = L.dayMark(c, r.cells[0]);
-      const td = el('td', { class: c.cls, title: `${L.short(state.towns[k].label)}: ${CLS[c.cls]}` }, L.time(c.min));
+      const off = state.towns[k].hol && state.towns[k].hol.off[c.ymd];
+      const td = el('td', { class: c.cls, title: `${L.short(state.towns[k].label)}: ${CLS[c.cls]}${off ? ` (${off})` : ''}` }, L.time(c.min));
       if (mark) td.append(el('small', {}, mark));
       tr.append(td);
     });
@@ -194,7 +211,7 @@ function combo() {
   };
   const pick = (p) => {
     close(); box.value = '';
-    const t = L.toTown(p, ZONES, WEEKEND);
+    const t = L.toTown(p, ZONES, WEEKEND, HOLIDAYS);
     if (!state.towns.some((x) => x.label === t.label) && state.towns.length < L.MAX_TOWNS) state.towns.push(t);
     draw();
   };
@@ -257,15 +274,17 @@ function swapIn(rest, redraw) {
 
 async function main() {
   const want = L.decodeState(location.search);
+  const hol = getJSON('data/holidays.json').catch(() => null);
   let doc, rest;
   try { [doc, rest] = await loadPlaces(want.towns); } catch (e) { $('best').firstChild.textContent = `Could not load the list of towns (${e.message}). Reload to try again.`; return; }
   PLACES = doc.places; ZONES = doc.zones; WEEKEND = doc.weekend;
-  const find = (label) => { const p = label && L.placeByLabel(PLACES, label); return p ? L.toTown(p, ZONES, WEEKEND) : null; };
+  HOLIDAYS = await hol;
+  const find = (label) => { const p = label && L.placeByLabel(PLACES, label); return p ? L.toTown(p, ZONES, WEEKEND, HOLIDAYS) : null; };
   let towns = want.towns.map(find).filter(Boolean);
   if (!towns.length) {
     let mine = null;
     try { mine = L.biggestIn(PLACES, ZONES, Intl.DateTimeFormat().resolvedOptions().timeZone); } catch { /* no zone */ }
-    towns = [mine && L.toTown(mine, ZONES, WEEKEND), find('London, England, United Kingdom'), find('Tokyo, Japan'), find('New York City, New York, United States')]
+    towns = [mine && L.toTown(mine, ZONES, WEEKEND, HOLIDAYS), find('London, England, United Kingdom'), find('Tokyo, Japan'), find('New York City, New York, United States')]
       .filter(Boolean);
     towns = towns.filter((t, i) => towns.findIndex((x) => x.tz === t.tz) === i).slice(0, 3);
   }

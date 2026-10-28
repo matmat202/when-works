@@ -69,6 +69,7 @@ tr.now td:first-child::after{content:" · now";font-size:11px}
 .key i.best{box-shadow:inset 0 0 0 2px var(--best)}
 #changes ul{margin:0;padding:0 0 0 18px;line-height:1.55}
 .note{font-size:13px;color:var(--ink-2);margin:8px 0 0;line-height:1.5}
+.hol{margin:8px 0 0;padding:4px 0 4px 10px;border-left:3px solid var(--work);line-height:1.5}
 footer{font-size:12px;color:var(--ink-2);line-height:1.5;margin:18px 2px 8px}
 #slot h2{margin-bottom:10px}
 #slot label{font-size:14px;color:var(--ink-2);display:flex;gap:6px;align-items:center}
@@ -124,7 +125,7 @@ tr.picked td{outline:2px dashed var(--ink-2);outline-offset:-1px}
 <section class="card">
   <div class="scroll"><table id="grid"></table></div>
   <div class="key">
-    <span><i class="work"></i>at work (9 to 5 on a working day)</span>
+    <span><i class="work"></i>at work (9 to 5 on a working day, not a public holiday)</span>
     <span><i class="awake"></i>awake (7 am to 11 pm)</span>
     <span><i class="sleep"></i>asleep</span>
     <span><i class="best"></i>the best hours</span>
@@ -138,14 +139,17 @@ tr.picked td{outline:2px dashed var(--ink-2);outline-offset:-1px}
   Time zones and clock changes come from your browser's own copy of the IANA time zone database, the one
   phones and computers set their clocks by. Working days follow each country's weekend as
   <a href="https://cldr.unicode.org/">Unicode CLDR</a> records it (Friday and Saturday across much of the Gulf, Thursday
-  and Friday in Afghanistan, Friday in Iran, Sunday in India); public holidays are not counted, and
-  <a href="https://matmat202.github.io/whos-off/">Who's Off?</a> lists those. Towns:
+  and Friday in Afghanistan, Friday in Iran, Sunday in India). A public holiday that covers the whole country counts as a day off, and a weekend day
+  moved to make up for one counts as a working day, from the same table as
+  <a href="https://matmat202.github.io/whos-off/">Who's Off?</a> (2026 and 2027; regional holidays such as a
+  German state's or a US state's are not counted, and a holiday does not close every workplace). Towns:
   <a href="https://www.geonames.org/">GeoNames</a> (CC BY 4.0), every place of 15,000+ people. Nothing leaves your browser.
   <br>Made by Claude for <a href="https://matmat202.github.io/">matmat202</a> ·
   <a href="https://github.com/matmat202/when-works">source</a>
 </footer>
 </main>
 <link rel="preload" href="data/seed.json" as="fetch" crossorigin>
+<link rel="preload" href="data/holidays.json" as="fetch" crossorigin>
 <script type="module" src="app.js"></script>
 </body>
 </html>

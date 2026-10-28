@@ -66,20 +66,52 @@ export function inWeekend(wd, [first, last]) {
 export const WORLD_WEEKEND = [6, 0];
 export const weekendOf = (cc, table) => (table && table[cc]) || WORLD_WEEKEND;
 
+// A town's public holidays, from data/holidays.json: { off: { ymd: name }, work: [ymd] }, where
+// `work` is the weekend days its country makes into working days (China moves several a year).
+// No table (still loading, or a country without one) means no holidays.
+export const holidaysOf = (cc, table) => ({ off: (table && table.off && table.off[cc]) || {}, work: (table && table.work && table.work[cc]) || [] });
+
+// Is a town's local day a day off? A public holiday is; a weekend day is, unless it was made a working day.
+export function dayOff(w, weekend, hol) {
+  if (hol && hol.off[w.ymd]) return true;
+  return inWeekend(w.wd, weekend) && !(hol && hol.work.includes(w.ymd));
+}
+
 // 'work' (a working day, 9 to 5), 'awake' (7 am to 11 pm otherwise) or 'sleep'.
-export function classify(w, weekend) {
+export function classify(w, weekend, hol) {
   if (w.min < AWAKE[0] || w.min >= AWAKE[1]) return 'sleep';
-  if (!inWeekend(w.wd, weekend) && w.min >= WORK[0] && w.min < WORK[1]) return 'work';
+  if (!dayOff(w, weekend, hol) && w.min >= WORK[0] && w.min < WORK[1]) return 'work';
   return 'awake';
 }
 
-// The grid: for each row, each town's wall clock and class. towns: [{ tz, weekend }].
+// The grid: for each row, each town's wall clock and class. towns: [{ tz, weekend, hol? }].
 export function grid(towns, ymd) {
   const home = towns[0];
   return dayRows(home.tz, ymd).map((ms) => ({
     ms,
-    cells: towns.map((t) => { const w = wall(t.tz, ms); return { ...w, cls: classify(w, t.weekend) }; }),
+    cells: towns.map((t) => { const w = wall(t.tz, ms); return { ...w, cls: classify(w, t.weekend, t.hol) }; }),
   }));
+}
+
+// What the grid's working hours fall on: every town's local day whose 9-to-5 the grid shows
+// (one or two per town, since a far town's day straddles the home day) that is a public holiday
+// or a weekend day made a working day. [{ k, ymd, kind: 'off' | 'work', name }], in town order.
+// `unknown` lists the years the grid touches that the table does not cover, so a page can say
+// "holidays not known" rather than imply there are none.
+export function holidayNotes(towns, g, years) {
+  const notes = [], seen = new Set(), unknown = new Set();
+  g.forEach((r) => r.cells.forEach((c, k) => {
+    if (c.min < WORK[0] || c.min >= WORK[1]) return;
+    const key = `${k} ${c.ymd}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    if (years && !years.includes(Number(c.ymd.slice(0, 4)))) { unknown.add(Number(c.ymd.slice(0, 4))); return; }
+    const hol = towns[k].hol;
+    if (!hol) return;
+    if (hol.off[c.ymd]) notes.push({ k, ymd: c.ymd, kind: 'off', name: hol.off[c.ymd] });
+    else if (inWeekend(c.wd, towns[k].weekend) && hol.work.includes(c.ymd)) notes.push({ k, ymd: c.ymd, kind: 'work', name: null });
+  }));
+  return { notes, unknown: [...unknown].sort() };
 }
 
 // Runs of consecutive row indices where pred holds: [[first, last], ...].
@@ -227,8 +259,9 @@ export function biggestIn(places, zones, tz) {
   return i < 0 ? null : places.find((p) => p[P.TZ] === i) || null;
 }
 
-export const toTown = (p, zones, weekend) => ({
+export const toTown = (p, zones, weekend, holidays) => ({
   label: placeLabel(p), cc: p[P.CC], tz: zones[p[P.TZ]], weekend: weekendOf(p[P.CC], weekend),
+  hol: holidaysOf(p[P.CC], holidays),
 });
 
 // ---- the URL: ?t=Palo Alto, California, United States&t=London, …&d=2026-10-27 ----------
