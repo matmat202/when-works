@@ -80,6 +80,8 @@ select{font:inherit;font-size:15px;padding:8px 11px;border:1px solid var(--line)
 tr.picked td{outline:2px dashed var(--ink-2);outline-offset:-1px}
 [hidden]{display:none!important}
 @media (max-width:560px){table{font-size:13px;border-spacing:2px}td{padding:3px 4px}th{padding:2px 4px}}
+/* iOS Safari zooms the page into any field under 16px when it is tapped (input-zoom) */
+input,select,textarea{font-size:16px!important}
 </style>
 </head>
 <body>
