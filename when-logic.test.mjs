@@ -202,6 +202,13 @@ eq('Shanghai works Saturday 10 Oct 2026', L.classify({ ymd: '2026-10-10', min: 6
   eq('a year the table lacks is named, not passed over', L.holidayNotes([PA, LDN], L.grid([PA, LDN], '2028-07-04'), HOL.years),
     { notes: [], unknown: [2028] });
   eq('a plain day has no notes', L.holidayNotes([PA, LDN], L.grid([PA, LDN], '2026-11-25'), HOL.years), { notes: [], unknown: [] });
+  // London's 11 pm row is Brisbane's 9 am on the 25th, the ONLY working hour of Brisbane's
+  // Christmas on the grid: 9:00 itself is working time, so the holiday is still noted.
+  const BNE = town('Brisbane, Queensland, Australia'), gx = L.grid([LDN, BNE], '2026-12-24');
+  eq('a holiday whose only working cell is 9:00 sharp is noted',
+    [gx.filter((r) => r.cells[1].ymd === '2026-12-25' && r.cells[1].min >= 540 && r.cells[1].min < 1020).map((r) => r.cells[1].min),
+     L.holidayNotes([LDN, BNE], gx, HOL.years).notes],
+    [[540], [{ k: 1, ymd: '2026-12-25', kind: 'off', name: 'Christmas Day' }]]);
 }
 
 {
