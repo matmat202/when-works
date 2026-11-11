@@ -29,8 +29,17 @@ export function wall(tz, ms) {
 
 // Minutes east of UTC in a zone at an instant, from Intl ("GMT+5:45", "GMT-07:00", "GMT").
 // Copied from projects/how-far/site/far-logic.js.
+// The formatter is cached per zone like fmt() above: building one per call was 45% of the
+// whole equivalence sweep (node --cpu-prof, 2026-11-11), and the grid calls this per cell.
+const offCache = new Map();
+function offFmt(tz) {
+  if (!offCache.has(tz)) {
+    offCache.set(tz, new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'longOffset' }));
+  }
+  return offCache.get(tz);
+}
 export function offsetMin(tz, ms) {
-  const part = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'longOffset' }).formatToParts(new Date(ms))
+  const part = offFmt(tz).formatToParts(new Date(ms))
     .find((p) => p.type === 'timeZoneName').value;
   const m = /GMT([+-])(\d{1,2})(?::(\d{2}))?/.exec(part);
   return m ? (m[1] === '-' ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3] || 0)) : 0;
@@ -235,9 +244,19 @@ export function addDays(ymd, n) {
 export const P = { NAME: 0, A1: 1, CN: 2, CC: 3, POP: 4, TZ: 5 };
 
 const LETTERS = { 'ø': 'o', 'æ': 'ae', 'œ': 'oe', 'ß': 'ss', 'ł': 'l', 'đ': 'd', 'ð': 'd', 'þ': 'th', 'ı': 'i', 'ħ': 'h' };
+// Memoised on the coerced string: matchPlaces and placeByLabel fold every name in the
+// places file on every call, so the live search re-folded thousands of names per keystroke.
+// node --cpu-prof put fold at 59% of how-far's equivalence sweep and 27% of when-works'
+// (2026-11-11). The key is the coerced string, never the argument, so a non-string cannot
+// hold a reference; distinct keys are bounded by the place names plus the queries typed.
+const foldCache = new Map();
 export function fold(s) {
-  return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  const k = String(s);
+  if (foldCache.has(k)) return foldCache.get(k);
+  const v = k.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
     .replace(/[øæœßłđðþıħ]/g, (c) => LETTERS[c]).replace(/[^a-z0-9]+/g, ' ').trim();
+  foldCache.set(k, v);
+  return v;
 }
 
 export function placeLabel(p) {
