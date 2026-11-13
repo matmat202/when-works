@@ -154,9 +154,19 @@ export function best(g) {
   if (work.length) return { kind: 'work', runs: work, asleep: 0 };
   const awake = runs(n, (i) => g[i].cells.every((c) => c.cls !== 'sleep'));
   if (awake.length) return { kind: 'awake', runs: awake, asleep: 0 };
+  // A stretch here ends where the towns asleep change: "1 of 4 asleep, 7 am – 9 pm" read as one
+  // stretch was Tokyo asleep then Madrid, and named neither. who[r] lists run r's sleepers.
   const count = g.map((r) => r.cells.filter((c) => c.cls === 'sleep').length);
   const low = Math.min(...count);
-  return { kind: 'fewest', runs: runs(n, (i) => count[i] === low), asleep: low };
+  const sleepers = (i) => g[i].cells.flatMap((c, k) => (c.cls === 'sleep' ? [k] : []));
+  const out = [], who = [];
+  for (let i = 0; i < n; i++) {
+    if (count[i] !== low) continue;
+    const s = sleepers(i), last = out[out.length - 1];
+    if (last && last[1] === i - 1 && who[who.length - 1].join() === s.join()) last[1] = i;
+    else { out.push([i, i]); who.push(s); }
+  }
+  return { kind: 'fewest', runs: out, asleep: low, who };
 }
 
 // ---- clock changes -------------------------------------------------------------------

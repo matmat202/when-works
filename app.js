@@ -76,15 +76,20 @@ function drawBest(g, b) {
   const len = ([i, j]) => j - i + 1;
   const runs = [...b.runs].sort((x, y) => len(y) - len(x) || x[0] - y[0]).slice(0, 3);
   const hrs = (r) => `${len(r)} hour${len(r) > 1 ? 's' : ''}`;
+  // Who sleeps through a 'fewest' stretch: best() splits stretches where that changes.
+  const asleep = (r) => {
+    const ks = b.who[b.runs.indexOf(r)].map((k) => L.short(state.towns[k].label));
+    return `while ${ks.length > 1 ? ks.slice(0, -1).join(', ') + ' and ' + ks.at(-1) : ks[0]} ${ks.length > 1 ? 'are' : 'is'} asleep`;
+  };
   let head;
   if (n === 1) head = `Add a town to compare with ${home}.`;
   else if (b.kind === 'work') head = `Everyone is at work for ${hrs(runs[0])}: ${span(g, runs[0], 0)} in ${home}.`;
   else if (b.kind === 'awake') head = `No hour has everyone at work. Everyone is awake for ${hrs(runs[0])}: ${span(g, runs[0], 0)} in ${home}.`;
-  else head = `No hour has everyone awake. The fewest asleep is ${b.asleep} of ${n}: ${span(g, runs[0], 0)} in ${home}.`;
+  else head = `No hour has everyone awake. The fewest asleep is ${b.asleep} of ${n}: ${span(g, runs[0], 0)} in ${home}, ${asleep(runs[0])}.`;
   const kids = [el('p', { class: 'head' }, head), ...holidayLines(g)];
   if (n > 1) {
     runs.forEach((r, ri) => {
-      if (ri) kids.push(el('p', {}, `Also ${span(g, r, 0)} in ${home} (${hrs(r)}):`));
+      if (ri) kids.push(el('p', {}, `Also ${span(g, r, 0)} in ${home} (${hrs(r)}${b.kind === 'fewest' ? `, ${asleep(r)}` : ''}):`));
       kids.push(el('ul', {}, ...state.towns.map((t, k) => el('li', {}, `${L.short(t.label)}: ${span(g, r, k)}`))));
     });
     if (b.runs.length > 3) kids.push(el('p', { class: 'note' }, `And ${b.runs.length - 3} shorter stretch${b.runs.length - 3 > 1 ? 'es' : ''}, marked in the table.`));

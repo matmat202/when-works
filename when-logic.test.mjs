@@ -48,7 +48,13 @@ eq('best: work wins over awake', L.best(mk([['awake', 'awake'], ['work', 'work']
 eq('best: two separate runs', L.best(mk([['work', 'work'], ['sleep', 'work'], ['work', 'work']])),
   { kind: 'work', runs: [[0, 0], [2, 2]], asleep: 0 });
 eq('best: fewest asleep', L.best(mk([['sleep', 'sleep', 'work'], ['sleep', 'work', 'work'], ['sleep', 'sleep', 'sleep']])),
-  { kind: 'fewest', runs: [[1, 1]], asleep: 1 });
+  { kind: 'fewest', runs: [[1, 1]], asleep: 1, who: [[0]] });
+eq('best: same count, different sleeper, two stretches', L.best(mk([['sleep', 'work', 'work'], ['sleep', 'work', 'work'], ['work', 'sleep', 'work'], ['work', 'sleep', 'work'], ['sleep', 'sleep', 'work']])),
+  { kind: 'fewest', runs: [[0, 1], [2, 3]], asleep: 1, who: [[0], [1]] });
+eq('best: two asleep, both named', L.best(mk([['sleep', 'work', 'sleep'], ['sleep', 'sleep', 'sleep']])),
+  { kind: 'fewest', runs: [[0, 0]], asleep: 2, who: [[0, 2]] });
+eq('best: a sleeper set that recurs after a gap is a new stretch', L.best(mk([['sleep', 'work'], ['sleep', 'sleep'], ['sleep', 'work']])),
+  { kind: 'fewest', runs: [[0, 0], [2, 2]], asleep: 1, who: [[0], [0]] });
 
 // ---- day starts and lengths ----------------------------------------------------------
 eq('Havana 14 Mar 2027 starts at 1 am', L.wall('America/Havana', L.dayStart('America/Havana', '2027-03-14')).min, 60);
