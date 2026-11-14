@@ -296,6 +296,12 @@ export function placeByLabel(places, label) {
   return places.find((p) => fold(placeLabel(p)) === f) || null;
 }
 
+// A ?t= label from a link: the exact label first, else the best search match for it, so a
+// hand-typed or old link ("Mexico City, Mexico City, Mexico", "tokyo") still finds its town.
+export function resolveLabel(places, label) {
+  return placeByLabel(places, label) || matchPlaces(places, label, 1)[0] || null;
+}
+
 export function biggestIn(places, zones, tz) {
   const i = zones.indexOf(tz);
   return i < 0 ? null : places.find((p) => p[P.TZ] === i) || null;

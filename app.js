@@ -5,7 +5,7 @@ const $ = (id) => document.getElementById(id);
 let PLACES = [], ZONES = [], WEEKEND = {};
 let HOLIDAYS = null; // data/holidays.json, or null if it failed to load (then only weekends count)
 let MORE = null; // while the page runs on seed.json: what a search with no match says
-const state = { towns: [], ymd: null, pick: null, mins: 60 };
+const state = { towns: [], ymd: null, pick: null, mins: 60, missing: [] }; // missing: link labels no town matched
 
 const homeToday = () => L.wall(state.towns[0].tz, Date.now()).ymd;
 const el = (tag, attrs = {}, ...kids) => {
@@ -32,12 +32,12 @@ function drawTowns() {
     li.append(t.label);
     if (i > 0) {
       const up = el('button', { type: 'button', 'aria-label': `Make ${L.short(t.label)} home`, title: 'Make this the home town (the rows)' }, '⌂');
-      up.addEventListener('click', () => { state.towns.unshift(...state.towns.splice(i, 1)); draw(); });
+      up.addEventListener('click', () => { state.towns.unshift(...state.towns.splice(i, 1)); state.missing = []; draw(); });
       li.append(up);
     }
     if (state.towns.length > 1) {
       const x = el('button', { type: 'button', 'aria-label': `Remove ${L.short(t.label)}` }, '×');
-      x.addEventListener('click', () => { state.towns.splice(i, 1); draw(); });
+      x.addEventListener('click', () => { state.towns.splice(i, 1); state.missing = []; draw(); });
       li.append(x);
     }
     return li;
@@ -87,6 +87,7 @@ function drawBest(g, b) {
   else if (b.kind === 'awake') head = `No hour has everyone at work. Everyone is awake for ${hrs(runs[0])}: ${span(g, runs[0], 0)} in ${home}.`;
   else head = `No hour has everyone awake. The fewest asleep is ${b.asleep} of ${n}: ${span(g, runs[0], 0)} in ${home}, ${asleep(runs[0])}.`;
   const kids = [el('p', { class: 'head' }, head), ...holidayLines(g)];
+  if (state.missing.length) kids.push(el('p', { class: 'note missing' }, `The link named ${state.missing.map((l) => `"${l}"`).join(' and ')}, but no town by ${state.missing.length > 1 ? 'those names' : 'that name'} was found, so ${state.missing.length > 1 ? 'they are' : 'it is'} left out. Add ${state.missing.length > 1 ? 'them' : 'it'} below.`));
   if (n > 1) {
     runs.forEach((r, ri) => {
       if (ri) kids.push(el('p', {}, `Also ${span(g, r, 0)} in ${home} (${hrs(r)}${b.kind === 'fewest' ? `, ${asleep(r)}` : ''}):`));
@@ -218,7 +219,7 @@ function combo() {
     close(); box.value = '';
     const t = L.toTown(p, ZONES, WEEKEND, HOLIDAYS);
     if (!state.towns.some((x) => x.label === t.label) && state.towns.length < L.MAX_TOWNS) state.towns.push(t);
-    draw();
+    state.missing = []; draw();
   };
   box.addEventListener('input', () => {
     if (!box.value.trim()) { close(); return; }
@@ -284,8 +285,10 @@ async function main() {
   try { [doc, rest] = await loadPlaces(want.towns); } catch (e) { $('best').firstChild.textContent = `Could not load the list of towns (${e.message}). Reload to try again.`; return; }
   PLACES = doc.places; ZONES = doc.zones; WEEKEND = doc.weekend;
   HOLIDAYS = await hol;
-  const find = (label) => { const p = label && L.placeByLabel(PLACES, label); return p ? L.toTown(p, ZONES, WEEKEND, HOLIDAYS) : null; };
-  let towns = want.towns.map(find).filter(Boolean);
+  const find = (label) => { const p = L.resolveLabel(PLACES, label); return p ? L.toTown(p, ZONES, WEEKEND, HOLIDAYS) : null; };
+  let towns = want.towns.map(find);
+  state.missing = want.towns.filter((l, i) => l && l.trim() && !towns[i]);
+  towns = towns.filter(Boolean);
   if (!towns.length) {
     let mine = null;
     try { mine = L.biggestIn(PLACES, ZONES, Intl.DateTimeFormat().resolvedOptions().timeZone); } catch { /* no zone */ }

@@ -150,6 +150,14 @@ const named = [['Parisville', '', 'X', 'XX', 9, 0], ['Paris', 'Île-de-France', 
 eq('whole-name matches before the more populous prefixes', L.matchPlaces(named, 'paris').map(L.placeLabel),
   ['Paris, Île-de-France, France', 'Paris, Texas, United States', 'Parisville, X', 'Paris Hill, X']);
 eq('eight by default', L.matchPlaces(Array.from({ length: 12 }, (_, i) => [`Town${i}`, '', 'X', 'XX', 1, 0]), 'town').length, 8);
+// A link's ?t= label that is not the exact label still finds its town (2026-11-14: such
+// towns were dropped without a word). Mexico City's label omits its same-named region.
+const res = (l) => { const p = L.resolveLabel(doc.places, l); return p && L.placeLabel(p); };
+eq('resolveLabel: exact, region repeated, lower-case, unknown, blank',
+  ['Tokyo, Japan', 'Mexico City, Mexico City, Mexico', 'palo alto, california', 'Qwxzvillex, Nowhere', '  ', ''].map(res),
+  ['Tokyo, Japan', 'Mexico City, Mexico', 'Palo Alto, California, United States', null, null, null]);
+eq('resolveLabel keeps the exact label over a bigger same-named town',
+  res('Paris, Texas, United States'), 'Paris, Texas, United States');
 const pa = L.placeByLabel(doc.places, 'Palo Alto, California, United States');
 eq('P names the columns', [pa[L.P.NAME], pa[L.P.A1], pa[L.P.CN], pa[L.P.CC], pa[L.P.POP], doc.zones[pa[L.P.TZ]]], ['Palo Alto', 'California', 'United States', 'US', 66853, LA]);
 eq('biggest in the first zone of the list, and in none', [L.placeLabel(L.biggestIn(doc.places, doc.zones, doc.zones[0])), L.biggestIn(doc.places, doc.zones, 'Mars/Olympus')],
