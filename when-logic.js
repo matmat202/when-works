@@ -169,6 +169,18 @@ export function best(g) {
   return { kind: 'fewest', runs: out, asleep: low, who };
 }
 
+// The first of the `days` home days after ymd with an hour when everyone is at work, for a day
+// that has none (a weekend, a holiday): { ymd, g, b }, or null if no such day comes, which
+// for towns whose 9-to-5s never overlap is the honest answer, not a missing one.
+export const AHEAD = 14;
+export function nextWork(towns, ymd, days = AHEAD) {
+  for (let i = 1; i <= days; i++) {
+    const d = addDays(ymd, i), g = grid(towns, d), b = best(g);
+    if (b.kind === 'work') return { ymd: d, g, b };
+  }
+  return null;
+}
+
 // ---- clock changes -------------------------------------------------------------------
 
 // Every instant in [from, to) where a zone's offset changes: [{ ms, before, after }].

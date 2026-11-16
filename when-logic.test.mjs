@@ -12,7 +12,7 @@ const F = JSON.parse(readFileSync(factsPath, 'utf8'));
 
 let pass = 0, fail = 0;
 const eq = (name, got, want) => {
-  const g = JSON.stringify(got), w = JSON.stringify(want);
+  const g = String(JSON.stringify(got)), w = String(JSON.stringify(want));
   if (g === w) pass++; else { fail++; console.log(`FAIL ${name}\n  got  ${g.slice(0, 300)}\n  want ${w.slice(0, 300)}`); }
 };
 
@@ -244,6 +244,29 @@ eq('Shanghai works Saturday 10 Oct 2026', L.classify({ ymd: '2026-10-10', min: 6
   const g = L.grid([TOR, LDN], '2026-05-18');
   eq('Victoria Day: Toronto has no working hour, London does', [g.some((r) => r.cells[0].cls === 'work'), g.some((r) => r.cells[1].cls === 'work')], [false, true]);
   eq('Victoria Day: the note names Ontario', L.holidayNotes([TOR, LDN], g, HOL.years).notes, [{ k: 0, ymd: '2026-05-18', kind: 'off', name: 'Victoria Day (Ontario)' }]);
+}
+
+// ---- the next day everyone is at work (nextWork), for a day that has none ---------------
+{
+  const NYC = town('New York City, New York, United States'), RUH = town('Riyadh, Riyadh Region, Saudi Arabia');
+  const MTY = town('Monterrey, Nuevo León, Mexico');
+  const nw = (ts, d, n) => { const r = L.nextWork(ts, d, n); return r && [r.ymd, r.b.kind, r.b.runs]; };
+  // New York 9 am - noon is London 2 - 5 pm: rows 9..11 of New York's day.
+  eq('next: Thanksgiving Thursday -> Friday', nw([NYC, LDN], '2026-11-26'), ['2026-11-27', 'work', [[9, 11]]]);
+  eq('next: Saturday -> Monday, not Sunday', nw([NYC, LDN], '2026-11-28'), ['2026-11-30', 'work', [[9, 11]]]);
+  // Riyadh rests Friday and Saturday, London Saturday and Sunday: Riyadh's Sunday is not enough.
+  eq('next: Riyadh Friday -> Monday', nw([LDN, RUH], '2026-11-20')?.[0], '2026-11-23');
+  // New York's 9-to-5 is Riyadh's 5 pm to 1 am: a weekend is not what keeps them apart.
+  eq('next: New York and Riyadh never overlap', nw([NYC, RUH], '2026-11-20'), null);
+  eq('next: Revolution Day Monday -> Tuesday', nw([MTY, LDN], '2026-11-16')?.[0], '2026-11-17');
+  eq('next: the look-ahead stops where it says (1 day from Saturday)', nw([NYC, LDN], '2026-11-28', 1), null);
+  eq('next: the last day of the look-ahead counts (2 days from Saturday)', nw([NYC, LDN], '2026-11-28', 2)?.[0], '2026-11-30');
+  // Palo Alto's 9-to-5 ends as London's begins: no day ever has them at work together.
+  eq('next: towns that never overlap get null', nw([PA, LDN, TYO], '2026-11-16'), null);
+  // From a working day it is the next one after, never the day itself: Wednesday -> (Thanksgiving) -> Friday.
+  eq('next: starts the day after', nw([NYC, LDN], '2026-11-25')?.[0], '2026-11-27');
+  eq('next: looks two weeks ahead by default', L.AHEAD, 14);
+  eq('next: the returned grid is that day\'s', L.nextWork([NYC, LDN], '2026-11-28').g[0].cells[0].ymd, '2026-11-30');
 }
 
 console.log(`${pass} passed, ${fail} failed`);

@@ -87,6 +87,18 @@ function drawBest(g, b) {
   else if (b.kind === 'awake') head = `No hour has everyone at work. Everyone is awake for ${hrs(runs[0])}: ${span(g, runs[0], 0)} in ${home}.`;
   else head = `No hour has everyone awake. The fewest asleep is ${b.asleep} of ${n}: ${span(g, runs[0], 0)} in ${home}, ${asleep(runs[0])}.`;
   const kids = [el('p', { class: 'head' }, head), ...holidayLines(g)];
+  // A day with no shared working hour (a weekend, a holiday, or towns too far apart): say which
+  // day has one, a tap away, or that none comes, so nobody pages through days that never will.
+  if (n > 1 && b.kind !== 'work') {
+    const nw = L.nextWork(state.towns, state.ymd);
+    if (!nw) kids.push(el('p', { class: 'next' }, `No day in the next ${L.AHEAD === 14 ? 'two weeks' : `${L.AHEAD} days`} has an hour when everyone is at work: their working hours do not overlap, so the hours above are the best these towns get.`));
+    else {
+      const r = [...nw.b.runs].sort((x, y) => len(y) - len(x) || x[0] - y[0])[0];
+      const go = el('button', { type: 'button', id: 'goNext' }, `Show ${L.dateWords(nw.ymd)}`);
+      go.addEventListener('click', () => { state.ymd = nw.ymd; draw(); });
+      kids.push(el('p', { class: 'next' }, `The next day everyone is at work is ${L.dateWords(nw.ymd)}: ${hrs(r)}, ${span(nw.g, r, 0)} in ${home}. `, go));
+    }
+  }
   if (state.missing.length) kids.push(el('p', { class: 'note missing' }, `The link named ${state.missing.map((l) => `"${l}"`).join(' and ')}, but no town by ${state.missing.length > 1 ? 'those names' : 'that name'} was found, so ${state.missing.length > 1 ? 'they are' : 'it is'} left out. Add ${state.missing.length > 1 ? 'them' : 'it'} below.`));
   if (n > 1) {
     runs.forEach((r, ri) => {
