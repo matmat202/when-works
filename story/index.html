@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Never at work at the same time · When Works?, a story</title>
+<meta name="description" content="A story from When Works?: of 4,000 pairs of people drawn from 31,807 towns, almost one pair in four never share a single working hour in all of 2026. It is the clocks, not weekends or holidays: under 7½ hours apart every pair shares one, 8 or more apart none does. Every pair is still awake together, for 8 hours a day in the middle. And for one pair in three the gap moves during the year: London and Los Angeles share an hour on 20 days.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="plot" aria-hidden="true"></div>
+<p id="err" role="alert"></p>
+<main>
+
+<section class="step" data-step="gap"><div>
+  <p class="kicker">When Works? · a story</p>
+  <h1>Never at work at the same time</h1>
+  <p>Pick two people anywhere. Is there an hour in the year when both are at work?</p>
+  <p>I drew <b data-fact="n_pairs"></b> pairs of people from the <b data-fact="n_towns"></b>
+  towns <a href="../">When Works?</a> knows, which hold <b data-fact="billion"></b> people,
+  each town as often as it has people, and went through every day of
+  <b data-fact="year"></b> the way the page does: the first town’s day, hour by hour, each
+  person at work from 9 to 5 on a working day. The grey is the pairs, by how far apart
+  their clocks are; the red dot is the middle pair, <b data-fact="median_gap"></b>.</p>
+  <p class="small"><span class="k up">the middle pair</span> <span class="k down">pairs, by the gap between clocks</span> · Scroll ↓</p>
+</div></section>
+
+<section class="step" data-step="never"><div>
+  <p class="kicker">Chapter 1 · The eight-hour wall</p>
+  <h2>Almost one pair in four, never</h2>
+  <p><b data-fact="never"></b> of pairs, <span class="w">almost one pair in four</span>,
+  never share a working hour in the whole year. Not a single row of the table where both
+  are at work.</p>
+  <p>It is a wall, not a slope. For pairs whose gap holds all year, <span class="w">under
+  7½ hours apart every one shares an hour; 8 or more apart, not one does</span>. A working
+  day is eight hours long, so at eight hours apart one person’s day ends just as the
+  other’s begins.</p>
+  <p class="small">At exactly 7½ hours the half hour they share is not a whole row, so it
+  depends on whose hours you count: from Fortaleza, Kabul shares an hour; from Kabul,
+  Fortaleza does not.</p>
+</div></section>
+
+<section class="step" data-step="never"><div>
+  <p class="kicker">Chapter 2 · Two easy answers</p>
+  <h2>The clocks, not the calendar</h2>
+  <p>Weekends differ: Friday in Iran, Friday and Saturday across much of the Gulf. Make every
+  day a working day for everyone and the share that never meet is
+  <b data-fact="never_clock"></b>: <span class="w">the same pairs, every one</span>. The
+  calendar only decides how often: a pair that can meet shares an hour on
+  <b data-fact="can_days"></b> of the year, in the middle.</p>
+  <p>Nor is it two giant countries. Leave out every pair with a Chinese end:
+  <b data-fact="never:nochina"></b>. Every pair with an Indian end:
+  <b data-fact="never:noindia"></b>. <span class="w">The same, give or take a point.</span></p>
+</div></section>
+
+<section class="step" data-step="never"><div>
+  <p class="kicker">Chapter 3 · Awake, though</p>
+  <h2>Someone takes the call in the evening</h2>
+  <p>The waking day is longer. Count 7 am to 11 pm, and the share of pairs who are never
+  awake at the same time is <b data-fact="never_awake"></b>: <span class="w">every pair has
+  hours when both are up</span>. The pairs who never meet at work are both awake for
+  <b data-fact="never_awake_rows"></b> a day, in the middle. The call happens; one of them
+  takes it before work or after dinner.</p>
+</div></section>
+
+<section class="step" data-step="moves"><div>
+  <p class="kicker">Chapter 4 · The wall moves</p>
+  <h2>London and Los Angeles, for twenty days</h2>
+  <p>Clocks change, on different dates or not at all. For <b data-fact="moves"></b> of
+  pairs, <span class="w">about one in three</span>, the gap is not the same all year, and
+  for <b data-fact="part_year"></b> that moves them across the wall.</p>
+  <p>London and Los Angeles are eight hours apart, so they never meet, except in the weeks
+  when America has changed its clocks and Britain has not yet: then they are seven apart,
+  and share an hour on <span class="w">20 working days of the year</span>. London and
+  Shanghai share one only while Britain is on summer time.</p>
+</div></section>
+
+<section class="step" data-step="gap"><div>
+  <p class="kicker">Epilogue · Reading When Works?</p>
+  <h2>Look for the eight</h2>
+  <p>On <a href="../">When Works?</a>, two towns eight hours apart or more never have a row
+  where both are green, on any date. The clock changes it lists underneath are where that
+  can change.</p>
+  <p class="small">Data: the site’s own <a href="https://www.geonames.org/">GeoNames</a>
+  <code>cities15000</code> towns (CC BY 4.0), <b data-fact="n_towns"></b> of them, each
+  drawn as often as its GeoNames population, a pair from one town drawn again; weekends
+  from Unicode CLDR and public holidays (a country’s and its states’) from the same table
+  as the page. The towns are not everyone, <b data-fact="n_pairs"></b> pairs are a sample,
+  and a holiday does not close every workplace. “At work” is the page’s 9 to 5. The
+  program is <a href="https://github.com/matmat202/when-works/blob/main/story/build_story.py">in
+  the repository</a>.</p>
+</div></section>
+
+</main>
+<script type="module" src="story.js"></script>
+</body>
+</html>

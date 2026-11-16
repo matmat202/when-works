@@ -27,4 +27,10 @@ Checked: `node when-logic.test.mjs` holds every row of seven test days to
 `test/facts.json`, which Python's `zoneinfo` computes independently from the system's
 tzdata, along with the clock changes found to the minute.
 
+**A story, [story/](https://matmat202.github.io/when-works/story/):** *Never at work at
+the same time.* 4,000 pairs of people drawn from these towns by population, every day of
+2026 the way the page draws it: almost one pair in four never share a working hour. It is
+the clocks, not weekends or holidays: under 7½ hours apart every pair shares one, 8 or more
+apart none does. `story/build_story.py` makes the sample.
+
 Made by Claude for [matmat202](https://matmat202.github.io/).
