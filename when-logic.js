@@ -7,6 +7,11 @@
 export const HOUR = 3600000, MIN = 60000, DAY = 86400000;
 export const WORK = [9 * 60, 17 * 60];   // 9 am to 5 pm on a working day
 export const AWAKE = [7 * 60, 23 * 60];  // 7 am to 11 pm
+// The working hours a page may choose instead of 9 to 5, on the hour and inside AWAKE, so a
+// working hour is always a waking one: Palo Alto and London share no 9-to-5 hour all year,
+// but 8 am - 6 pm gives them two.
+export const WORK_STARTS = [7, 8, 9, 10, 11].map((h) => h * 60);
+export const WORK_ENDS = [15, 16, 17, 18, 19, 20, 21].map((h) => h * 60);
 
 const fmtCache = new Map();
 function fmt(tz) {
@@ -99,19 +104,19 @@ export function dayOff(w, weekend, hol) {
   return inWeekend(w.wd, weekend) && !(hol && hol.work.includes(w.ymd));
 }
 
-// 'work' (a working day, 9 to 5), 'awake' (7 am to 11 pm otherwise) or 'sleep'.
-export function classify(w, weekend, hol) {
+// 'work' (a working day, 9 to 5 or the hours given), 'awake' (7 am to 11 pm otherwise) or 'sleep'.
+export function classify(w, weekend, hol, work = WORK) {
   if (w.min < AWAKE[0] || w.min >= AWAKE[1]) return 'sleep';
-  if (!dayOff(w, weekend, hol) && w.min >= WORK[0] && w.min < WORK[1]) return 'work';
+  if (!dayOff(w, weekend, hol) && w.min >= work[0] && w.min < work[1]) return 'work';
   return 'awake';
 }
 
 // The grid: for each row, each town's wall clock and class. towns: [{ tz, weekend, hol? }].
-export function grid(towns, ymd) {
+export function grid(towns, ymd, work = WORK) {
   const home = towns[0];
   return dayRows(home.tz, ymd).map((ms) => ({
     ms,
-    cells: towns.map((t) => { const w = wall(t.tz, ms); return { ...w, cls: classify(w, t.weekend, t.hol) }; }),
+    cells: towns.map((t) => { const w = wall(t.tz, ms); return { ...w, cls: classify(w, t.weekend, t.hol, work) }; }),
   }));
 }
 
@@ -120,10 +125,10 @@ export function grid(towns, ymd) {
 // or a weekend day made a working day. [{ k, ymd, kind: 'off' | 'work', name }], in town order.
 // `unknown` lists the years the grid touches that the table does not cover, so a page can say
 // "holidays not known" rather than imply there are none.
-export function holidayNotes(towns, g, years) {
+export function holidayNotes(towns, g, years, work = WORK) {
   const notes = [], seen = new Set(), unknown = new Set();
   g.forEach((r) => r.cells.forEach((c, k) => {
-    if (c.min < WORK[0] || c.min >= WORK[1]) return;
+    if (c.min < work[0] || c.min >= work[1]) return;
     const key = `${k} ${c.ymd}`;
     if (seen.has(key)) return;
     seen.add(key);
@@ -173,9 +178,9 @@ export function best(g) {
 // that has none (a weekend, a holiday): { ymd, g, b }, or null if no such day comes, which
 // for towns whose 9-to-5s never overlap is the honest answer, not a missing one.
 export const AHEAD = 14;
-export function nextWork(towns, ymd, days = AHEAD) {
+export function nextWork(towns, ymd, days = AHEAD, work = WORK) {
   for (let i = 1; i <= days; i++) {
-    const d = addDays(ymd, i), g = grid(towns, d), b = best(g);
+    const d = addDays(ymd, i), g = grid(towns, d, work), b = best(g);
     if (b.kind === 'work') return { ymd: d, g, b };
   }
   return null;
@@ -327,10 +332,11 @@ export const toTown = (p, zones, weekend, holidays) => ({
 // ---- the URL: ?t=Palo Alto, California, United States&t=London, …&d=2026-10-27 ----------
 
 export const MAX_TOWNS = 6;
-export function encodeState({ towns, ymd }) {
+export function encodeState({ towns, ymd, work }) {
   const q = new URLSearchParams();
   for (const t of towns) q.append('t', t);
   if (ymd) q.set('d', ymd);
+  if (work && (work[0] !== WORK[0] || work[1] !== WORK[1])) q.set('w', `${work[0] / 60}-${work[1] / 60}`);
   const s = q.toString();
   return s ? `?${s}` : '';
 }
@@ -340,7 +346,10 @@ export function decodeState(search) {
   const d = q.get('d');
   // A real day only: 2026-13-99 is a valid Date.UTC, so round-trip it.
   const real = /^\d{4}-\d{2}-\d{2}$/.test(d || '') && new Date(utcOf(d)).toISOString().slice(0, 10) === d;
-  return { towns, ymd: real ? d : null };
+  // Working hours, w=8-18: only hours the page offers, so a link cannot make 3 am a working hour.
+  const w = /^(\d{1,2})-(\d{1,2})$/.exec(q.get('w') || '');
+  const work = w && WORK_STARTS.includes(w[1] * 60) && WORK_ENDS.includes(w[2] * 60) ? [w[1] * 60, w[2] * 60] : null;
+  return { towns, ymd: real ? d : null, work };
 }
 
 // ---- one hour, carried out: to a calendar, or as text -----------------------------------

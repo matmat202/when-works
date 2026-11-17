@@ -5,7 +5,7 @@ const $ = (id) => document.getElementById(id);
 let PLACES = [], ZONES = [], WEEKEND = {};
 let HOLIDAYS = null; // data/holidays.json, or null if it failed to load (then only weekends count)
 let MORE = null; // while the page runs on seed.json: what a search with no match says
-const state = { towns: [], ymd: null, pick: null, mins: 60, missing: [] }; // missing: link labels no town matched
+const state = { towns: [], ymd: null, work: L.WORK, pick: null, mins: 60, missing: [] }; // missing: link labels no town matched
 
 const homeToday = () => L.wall(state.towns[0].tz, Date.now()).ymd;
 const el = (tag, attrs = {}, ...kids) => {
@@ -18,7 +18,7 @@ const el = (tag, attrs = {}, ...kids) => {
 function sync() {
   const today = homeToday();
   history.replaceState(null, '', location.pathname + L.encodeState({
-    towns: state.towns.map((t) => t.label), ymd: state.ymd === today ? null : state.ymd,
+    towns: state.towns.map((t) => t.label), ymd: state.ymd === today ? null : state.ymd, work: state.work,
   }));
 }
 
@@ -59,7 +59,7 @@ function span(g, [i, j], k) {
 const country = (t) => t.label.split(', ').at(-1);
 function holidayLines(g) {
   if (!HOLIDAYS) return [el('p', { class: 'note' }, 'Public holidays could not be loaded, so only weekends are counted as days off.')];
-  const { notes, unknown } = L.holidayNotes(state.towns, g, HOLIDAYS.years);
+  const { notes, unknown } = L.holidayNotes(state.towns, g, HOLIDAYS.years, state.work);
   const out = notes.map((h) => {
     const t = state.towns[h.k];
     return el('p', { class: 'hol' }, h.kind === 'off'
@@ -90,8 +90,9 @@ function drawBest(g, b) {
   // A day with no shared working hour (a weekend, a holiday, or towns too far apart): say which
   // day has one, a tap away, or that none comes, so nobody pages through days that never will.
   if (n > 1 && b.kind !== 'work') {
-    const nw = L.nextWork(state.towns, state.ymd);
-    if (!nw) kids.push(el('p', { class: 'next' }, `No day in the next ${L.AHEAD === 14 ? 'two weeks' : `${L.AHEAD} days`} has an hour when everyone is at work: their working hours do not overlap, so the hours above are the best these towns get.`));
+    const nw = L.nextWork(state.towns, state.ymd, L.AHEAD, state.work);
+    const longest = state.work[0] === L.WORK_STARTS[0] && state.work[1] === L.WORK_ENDS.at(-1);
+    if (!nw) kids.push(el('p', { class: 'next' }, `No day in the next ${L.AHEAD === 14 ? 'two weeks' : `${L.AHEAD} days`} has an hour when everyone is at work: their working hours do not overlap, so the hours above are the best these towns get${longest ? '' : ', unless someone starts earlier or stays later: try longer working hours above'}.`));
     else {
       const r = [...nw.b.runs].sort((x, y) => len(y) - len(x) || x[0] - y[0])[0];
       const go = el('button', { type: 'button', id: 'goNext' }, `Show ${L.dateWords(nw.ymd)}`);
@@ -196,12 +197,18 @@ function drawChanges() {
   }));
 }
 
+// "9 to 5", "8 am to 6 pm": the key and the picker say the same hours.
+const hours = ([a, b]) => (a === L.WORK[0] && b === L.WORK[1] ? '9 to 5' : `${L.time(a)} to ${L.time(b)}`);
+
 function draw() {
   if (!state.ymd) state.ymd = homeToday();
   sync();
   drawTowns();
   $('date').value = state.ymd;
-  const g = L.grid(state.towns, state.ymd);
+  $('workFrom').value = String(state.work[0]);
+  $('workTo').value = String(state.work[1]);
+  $('workKey').textContent = `${hours(state.work)} on a working day`;
+  const g = L.grid(state.towns, state.ymd, state.work);
   const b = L.best(g);
   drawBest(g, b);
   pickIn(g, b);
@@ -256,14 +263,19 @@ function wire() {
   $('prev').addEventListener('click', () => { state.ymd = L.addDays(state.ymd, -1); draw(); });
   $('next').addEventListener('click', () => { state.ymd = L.addDays(state.ymd, 1); draw(); });
   $('today').addEventListener('click', () => { state.ymd = homeToday(); draw(); });
-  const redraw = () => { const g = L.grid(state.towns, state.ymd); drawSlot(g); drawGrid(g, L.best(g)); };
+  $('workFrom').replaceChildren(...L.WORK_STARTS.map((m) => el('option', { value: m }, L.time(m))));
+  $('workTo').replaceChildren(...L.WORK_ENDS.map((m) => el('option', { value: m }, L.time(m))));
+  const setWork = () => { state.work = [Number($('workFrom').value), Number($('workTo').value)]; draw(); };
+  $('workFrom').addEventListener('change', setWork);
+  $('workTo').addEventListener('change', setWork);
+  const redraw = () => { const g = L.grid(state.towns, state.ymd, state.work); drawSlot(g); drawGrid(g, L.best(g)); };
   $('slotStart').addEventListener('change', () => { state.pick = Number($('slotStart').value); redraw(); });
   $('slotLen').addEventListener('change', () => { state.mins = Number($('slotLen').value); redraw(); });
   $('copy').addEventListener('click', async () => {
     try { await navigator.clipboard.writeText($('slot').dataset.text); $('copied').textContent = 'Copied.'; }
     catch { $('copied').textContent = 'Could not copy: select the lines above instead.'; }
   });
-  setInterval(() => { if (state.towns.length) drawGrid(L.grid(state.towns, state.ymd), L.best(L.grid(state.towns, state.ymd))); }, 60000);
+  setInterval(() => { if (state.towns.length) drawGrid(L.grid(state.towns, state.ymd, state.work), L.best(L.grid(state.towns, state.ymd, state.work))); }, 60000);
 }
 
 // The first screen draws from data/seed.json (the biggest town in each zone plus the
@@ -310,6 +322,7 @@ async function main() {
   }
   state.towns = towns.filter((t, i) => towns.findIndex((x) => x.label === t.label) === i);
   state.ymd = want.ymd;
+  state.work = want.work || L.WORK;
   wire();
   draw();
   swapIn(rest);

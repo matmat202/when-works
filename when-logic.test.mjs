@@ -98,9 +98,9 @@ for (const c of F.cases) for (const t of c.towns) {
 }
 eq('biggest town in Asia/Kolkata', L.placeLabel(L.biggestIn(doc.places, doc.zones, 'Asia/Kolkata')), 'Mumbai, Maharashtra, India');
 const s = L.encodeState({ towns: ['Palo Alto, California, United States', 'London, England, United Kingdom'], ymd: '2026-11-02' });
-eq('url round trip', L.decodeState(s), { towns: ['Palo Alto, California, United States', 'London, England, United Kingdom'], ymd: '2026-11-02' });
+eq('url round trip', L.decodeState(s), { towns: ['Palo Alto, California, United States', 'London, England, United Kingdom'], ymd: '2026-11-02', work: null });
 eq('url: a bad date is dropped, towns capped', L.decodeState('?d=2026-13-99&' + 'abcdefgh'.split('').map((x) => `t=${x}`).join('&')),
-  { towns: ['a', 'b', 'c', 'd', 'e', 'f'], ymd: null });
+  { towns: ['a', 'b', 'c', 'd', 'e', 'f'], ymd: null, work: null });
 
 // ---- one hour, to a calendar ------------------------------------------------------------
 // 27 Oct 2026, 7 am in Palo Alto (PDT, -7) is 14:00 UTC: the shot's Palo Alto/London/New Delhi day.
@@ -267,6 +267,34 @@ eq('Shanghai works Saturday 10 Oct 2026', L.classify({ ymd: '2026-10-10', min: 6
   eq('next: starts the day after', nw([NYC, LDN], '2026-11-25')?.[0], '2026-11-27');
   eq('next: looks two weeks ahead by default', L.AHEAD, 14);
   eq('next: the returned grid is that day\'s', L.nextWork([NYC, LDN], '2026-11-28').g[0].cells[0].ymd, '2026-11-30');
+}
+
+// ---- working hours other than 9 to 5 (the page's picker, w= in the URL) -----------------
+{
+  const W86 = [8 * 60, 18 * 60];
+  eq('hours: 7:59 awake, 8 am work, 5:59 pm work, 6 pm not', [479, 480, 1079, 1080].map((m) => L.classify({ min: m, wd: 2 }, wk, null, W86)), ['awake', 'work', 'work', 'awake']);
+  eq('hours: a weekend is off at any hours', L.classify({ min: 600, wd: 6 }, wk, null, W86), 'awake');
+  eq('hours: the choices', [L.WORK_STARTS, L.WORK_ENDS].map((a) => a.map((m) => m / 60)), [[7, 8, 9, 10, 11], [15, 16, 17, 18, 19, 20, 21]]);
+  eq('hours: every choice is a waking hour', [...L.WORK_STARTS, ...L.WORK_ENDS].every((m) => m >= L.AWAKE[0] && m <= L.AWAKE[1]), true);
+  // Palo Alto 9 am is London 5 pm in November: no shared 9-to-5 hour. At 8 to 6, Palo Alto 8 - 10 am.
+  const workRuns = (g) => { const b = L.best(g); return b.kind === 'work' ? b.runs : b.kind; };
+  eq('hours: Palo Alto and London share no 9-to-5 hour', workRuns(L.grid([PA, LDN], '2026-11-18')), 'awake');
+  eq('hours: at 8 to 6 they share two', workRuns(L.grid([PA, LDN], '2026-11-18', W86)), [[8, 9]]);
+  eq('hours: at 7 to 9 they share 7 am - 1 pm', workRuns(L.grid([PA, LDN], '2026-11-18', [420, 1260])), [[7, 12]]);
+  eq('hours: the default is 9 to 5', L.grid([PA, LDN], '2026-11-18', L.WORK).map((r) => r.cells.map((c) => c.cls)), L.grid([PA, LDN], '2026-11-18').map((r) => r.cells.map((c) => c.cls)));
+  eq('hours: next day at 8 to 6, Saturday -> Monday', L.nextWork([PA, LDN], '2026-11-21', L.AHEAD, W86)?.ymd, '2026-11-23');
+  eq('hours: next day at 9 to 5 never comes', L.nextWork([PA, LDN], '2026-11-21'), null);
+  // A holiday that only the wider hours reach: UTC's day is 8 am - 7 am (next day) at +8, so a
+  // 9-to-5 never touches the +8 town's 18 Nov, and a 7 am start does.
+  const hol = [{ tz: 'UTC', weekend: wk }, { tz: 'Etc/GMT-8', weekend: wk, hol: { off: { '2026-11-18': 'X Day' }, work: [] } }];
+  const hg = L.grid(hol, '2026-11-17');
+  eq('hours: a holiday outside 9 to 5 is not noted', L.holidayNotes(hol, hg, null).notes, []);
+  eq('hours: a holiday inside 7 to 5 is', L.holidayNotes(hol, hg, null, [420, 1020]).notes, [{ k: 1, ymd: '2026-11-18', kind: 'off', name: 'X Day' }]);
+  const u = L.encodeState({ towns: ['Palo Alto, California, United States'], ymd: null, work: W86 });
+  eq('hours: url carries w=8-18', u, '?t=Palo+Alto%2C+California%2C+United+States&w=8-18');
+  eq('hours: url round trip', L.decodeState(u).work, W86);
+  eq('hours: 9 to 5 is left out of the url', L.encodeState({ towns: ['x'], ymd: null, work: L.WORK }), '?t=x');
+  eq('hours: url hours the picker does not offer are dropped', ['3-18', '8-23', '18-8', '8', 'x-y', '9-17'].map((w) => L.decodeState(`?w=${w}`).work), [null, null, null, null, null, [540, 1020]]);
 }
 
 console.log(`${pass} passed, ${fail} failed`);

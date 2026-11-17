@@ -74,6 +74,7 @@ tr.now td:first-child::after{content:" · now";font-size:11px}
 .hol{margin:8px 0 0;padding:4px 0 4px 10px;border-left:3px solid var(--work);line-height:1.5}
 footer{font-size:12px;color:var(--ink-2);line-height:1.5;margin:18px 2px 8px}
 #slot h2{margin-bottom:10px}
+.row.work{margin-top:10px}.row.work label{font-size:14px;color:var(--ink-2);display:flex;gap:6px;align-items:center}
 #slot label{font-size:14px;color:var(--ink-2);display:flex;gap:6px;align-items:center}
 select{font:inherit;font-size:15px;padding:8px 11px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
 #slotLines{margin:10px 0;padding:0 0 0 18px;line-height:1.55;font-variant-numeric:tabular-nums}
@@ -106,6 +107,10 @@ input,select,textarea{font-size:16px!important}
       <button type="button" id="today">Today</button>
     </div>
   </div>
+  <div class="row work">
+    <label>Working hours <select id="workFrom" aria-label="Work starts, in each town's own time"></select></label>
+    <label>to <select id="workTo" aria-label="Work ends, in each town's own time"></select></label>
+  </div>
 </section>
 
 <section class="card" id="best" aria-live="polite"><p class="head">Loading the towns…</p></section>
@@ -129,7 +134,7 @@ input,select,textarea{font-size:16px!important}
 <section class="card">
   <div class="scroll"><table id="grid"></table></div>
   <div class="key">
-    <span><i class="work"></i>at work (9 to 5 on a working day, not a public holiday)</span>
+    <span><i class="work"></i>at work (<span id="workKey">9 to 5 on a working day</span>, not a public holiday)</span>
     <span><i class="awake"></i>awake (7 am to 11 pm)</span>
     <span><i class="sleep"></i>asleep</span>
     <span><i class="best"></i>the best hours</span>
