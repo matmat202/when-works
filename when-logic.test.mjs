@@ -294,6 +294,9 @@ eq('Shanghai works Saturday 10 Oct 2026', L.classify({ ymd: '2026-10-10', min: 6
   eq('hours: url carries w=8-18', u, '?t=Palo+Alto%2C+California%2C+United+States&w=8-18');
   eq('hours: url round trip', L.decodeState(u).work, W86);
   eq('hours: 9 to 5 is left out of the url', L.encodeState({ towns: ['x'], ymd: null, work: L.WORK }), '?t=x');
+  // W86 moves BOTH bounds, so a mutant reading "start and end both changed" stays green on it
+  eq('hours: a changed start alone still reaches the url', L.encodeState({ towns: ['x'], ymd: null, work: [L.WORK[0] - 120, L.WORK[1]] }), '?t=x&w=7-17');
+  eq('hours: a changed end alone too', L.encodeState({ towns: ['x'], ymd: null, work: [L.WORK[0], L.WORK[1] + 120] }), '?t=x&w=9-19');
   eq('hours: url hours the picker does not offer are dropped', ['3-18', '8-23', '18-8', '8', 'x-y', '9-17'].map((w) => L.decodeState(`?w=${w}`).work), [null, null, null, null, null, [540, 1020]]);
 }
 
