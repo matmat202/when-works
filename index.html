@@ -81,8 +81,15 @@ select{font:inherit;font-size:15px;padding:8px 11px;border:1px solid var(--line)
 .btn{display:inline-block;font-size:15px;padding:8px 11px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--accent);font-weight:600;text-decoration:none}
 #grid tbody tr{cursor:pointer}
 tr.picked td{outline:2px dashed var(--ink-2);outline-offset:-1px}
+/* The home column stays put while a phone scrolls the other towns under it: without it, five
+   or six towns push home off-screen and no cell can be read against home's hour. The shadow
+   paints the border-spacing around it, so scrolled cells do not show through the gaps. */
+#grid th:first-child,#grid td:first-child{position:sticky;left:0;z-index:1}
+#grid th:first-child{background:var(--card)}
+#grid td:first-child{box-shadow:0 0 0 var(--gap,3px) var(--card)}
+#grid tr.best td:first-child{box-shadow:inset 0 0 0 2px var(--best),0 0 0 var(--gap,3px) var(--card)}
 [hidden]{display:none!important}
-@media (max-width:560px){table{font-size:13px;border-spacing:2px}td{padding:3px 4px}th{padding:2px 4px}}
+@media (max-width:560px){table{font-size:13px;border-spacing:2px;--gap:2px}td{padding:3px 4px}th{padding:2px 4px}}
 /* iOS Safari zooms the page into any field under 16px when it is tapped (input-zoom) */
 input,select,textarea{font-size:16px!important}
 </style>
