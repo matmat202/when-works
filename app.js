@@ -60,11 +60,11 @@ const country = (t) => t.label.split(', ').at(-1);
 function holidayLines(g) {
   if (!HOLIDAYS) return [el('p', { class: 'note' }, 'Public holidays could not be loaded, so only weekends are counted as days off.')];
   const { notes, unknown } = L.holidayNotes(state.towns, g, HOLIDAYS.years, state.work);
-  const out = notes.map((h) => {
-    const t = state.towns[h.k];
+  const out = L.mergeNotes(notes, (k) => country(state.towns[k])).map((h) => {
+    const who = L.andList(h.ks.map((k) => L.short(state.towns[k].label))), one = h.ks.length === 1;
     return el('p', { class: 'hol' }, h.kind === 'off'
-      ? `${L.short(t.label)} has a public holiday on ${L.dateWords(h.ymd)}, ${h.name}, so it is counted as off work that day.`
-      : `${L.short(t.label)} works on ${L.dateWords(h.ymd)}, a weekend day ${country(t)} moved to make up for a holiday.`);
+      ? `${who} ${one ? 'has' : 'have'} a public holiday on ${L.dateWords(h.ymd)}, ${h.name}, so ${one ? 'it is' : 'they are'} counted as off work that day.`
+      : `${who} ${one ? 'works' : 'work'} on ${L.dateWords(h.ymd)}, a weekend day ${country(state.towns[h.ks[0]])} moved to make up for a holiday.`);
   });
   if (unknown.length) out.push(el('p', { class: 'note' }, `Public holidays are known for ${HOLIDAYS.years.join(' and ')} only, so in ${unknown.join(' and ')} only weekends count as days off.`));
   return out;

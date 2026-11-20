@@ -141,6 +141,23 @@ export function holidayNotes(towns, g, years, work = WORK) {
   return { notes, unknown: [...unknown].sort() };
 }
 
+// One line per holiday, not per town: notes for the same day and the same holiday name (or,
+// for a moved working day, the same country, whose name the line carries) become one, with
+// every town in it, ks in the towns' order (home first). Lines keep the order first noted.
+export function mergeNotes(notes, countryOf) {
+  const out = new Map();
+  for (const h of notes) {
+    const key = [h.kind, h.ymd, h.kind === 'off' ? h.name : countryOf(h.k)].join('|');
+    if (out.has(key)) out.get(key).ks.push(h.k); else out.set(key, { ks: [h.k], ymd: h.ymd, kind: h.kind, name: h.name });
+  }
+  return [...out.values()].map((h) => ({ ...h, ks: h.ks.sort((x, y) => x - y) }));
+}
+
+// "A", "A and B", "A, B and C".
+export function andList(xs) {
+  return xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`;
+}
+
 // Runs of consecutive row indices where pred holds: [[first, last], ...].
 function runs(n, pred) {
   const out = [];

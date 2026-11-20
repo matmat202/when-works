@@ -195,6 +195,11 @@ eq('Shanghai works Saturday 10 Oct 2026', L.classify({ ymd: '2026-10-10', min: 6
   eq('Thanksgiving: New York/London best is awake, not work', L.best(L.grid([NYC, LDN], '2026-11-26')).kind, 'awake');
   eq('Thanksgiving: one note, Palo Alto', L.holidayNotes([PA, LDN], g, HOL.years),
     { notes: [{ k: 0, ymd: '2026-11-26', kind: 'off', name: 'Thanksgiving Day' }], unknown: [] });
+  // Palo Alto and New York both keep Thanksgiving: two notes, one line naming both.
+  const g3 = L.grid([PA, NYC, LDN], '2026-11-26'), cty = (k) => ['US', 'US', 'GB'][k];
+  eq('Thanksgiving, two US towns: two notes', L.holidayNotes([PA, NYC, LDN], g3, HOL.years).notes.map((h) => h.k).sort(), [0, 1]);
+  eq('Thanksgiving, two US towns: one line', L.mergeNotes(L.holidayNotes([PA, NYC, LDN], g3, HOL.years).notes, cty),
+    [{ ks: [0, 1], ymd: '2026-11-26', kind: 'off', name: 'Thanksgiving Day' }]);
   // The day before, everyone is at work again (the holiday is one day, not the week).
   eq('the day before Thanksgiving is a working day', L.best(L.grid([NYC, LDN], '2026-11-25')).kind, 'work');
 }
@@ -215,6 +220,19 @@ eq('Shanghai works Saturday 10 Oct 2026', L.classify({ ymd: '2026-10-10', min: 6
   eq('...and Shanghai has working hours that Saturday', g.some((r) => r.cells[0].cls === 'work'), true);
   eq('a year the table lacks is named, not passed over', L.holidayNotes([PA, LDN], L.grid([PA, LDN], '2028-07-04'), HOL.years),
     { notes: [], unknown: [2028] });
+  {
+    // Merge rules, synthetic and out of order: same day and name join (towns in list order),
+    // another name or day does not, and a moved working day joins only within one country.
+    const n = [{ k: 3, ymd: 'd1', kind: 'off', name: 'A' }, { k: 0, ymd: 'd1', kind: 'off', name: 'B' }, { k: 1, ymd: 'd1', kind: 'off', name: 'A' },
+      { k: 2, ymd: 'd2', kind: 'off', name: 'A' }, { k: 2, ymd: 'd1', kind: 'off', name: 'A' }, { k: 4, ymd: 'd1', kind: 'work', name: null }, { k: 5, ymd: 'd1', kind: 'work', name: null },
+      { k: 6, ymd: 'd1', kind: 'work', name: null }];
+    const cc = (k) => ({ 4: 'CN', 5: 'HU', 6: 'CN' })[k] || 'US';
+    eq('merge: same day and holiday join, others stay apart', L.mergeNotes(n, cc), [
+      { ks: [1, 2, 3], ymd: 'd1', kind: 'off', name: 'A' }, { ks: [0], ymd: 'd1', kind: 'off', name: 'B' }, { ks: [2], ymd: 'd2', kind: 'off', name: 'A' },
+      { ks: [4, 6], ymd: 'd1', kind: 'work', name: null }, { ks: [5], ymd: 'd1', kind: 'work', name: null }]);
+    eq('merge: no notes, no lines', L.mergeNotes([], cc), []);
+    eq('andList', [[], ['a'], ['a', 'b'], ['a', 'b', 'c']].map(L.andList), ['', 'a', 'a and b', 'a, b and c']);
+  }
   eq('a plain day has no notes', L.holidayNotes([PA, LDN], L.grid([PA, LDN], '2026-11-25'), HOL.years), { notes: [], unknown: [] });
   // London's 11 pm row is Brisbane's 9 am on the 25th, the ONLY working hour of Brisbane's
   // Christmas on the grid: 9:00 itself is working time, so the holiday is still noted.
