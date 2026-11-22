@@ -285,7 +285,7 @@ export function addDays(ymd, n) {
 // ---- places: [name, admin1, country, cc, pop, tzIndex], most populous first ------------
 // Matching copied from projects/how-far/site/far-logic.js, which reads the same GeoNames file.
 
-export const P = { NAME: 0, A1: 1, CN: 2, CC: 3, POP: 4, TZ: 5 };
+export const P = { NAME: 0, A1: 1, CN: 2, CC: 3, POP: 4, TZ: 5, NEAR: 6 };
 
 const LETTERS = { 'ø': 'o', 'æ': 'ae', 'œ': 'oe', 'ß': 'ss', 'ł': 'l', 'đ': 'd', 'ð': 'd', 'þ': 'th', 'ı': 'i', 'ħ': 'h' };
 // Memoised on the coerced string: matchPlaces and placeByLabel fold every name in the
@@ -303,8 +303,12 @@ export function fold(s) {
   return v;
 }
 
+// Two towns can carry one name in one region (two Hayes in England). build.py gives the
+// smaller of a colliding pair a NEAR field -- a bigger neighbour's name -- so each town is
+// its own line and its own ?t= link. The biggest namesake keeps the bare label, so links
+// made before this still open the town they opened then.
 export function placeLabel(p) {
-  const parts = [p[P.NAME]];
+  const parts = [p[P.NEAR] ? `${p[P.NAME]} (near ${p[P.NEAR]})` : p[P.NAME]];
   if (p[P.A1] && p[P.A1] !== p[P.NAME]) parts.push(p[P.A1]);
   parts.push(p[P.CN]);
   return parts.join(', ');

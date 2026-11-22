@@ -97,6 +97,27 @@ for (const c of F.cases) for (const t of c.towns) {
   eq(`${t.label} is a town with the case's zone`, p && L.toTown(p, doc.zones, doc.weekend), { label: t.label, cc: t.cc, tz: t.tz, weekend: t.weekend, hol: { off: {}, work: [] } });
 }
 eq('biggest town in Asia/Kolkata', L.placeLabel(L.biggestIn(doc.places, doc.zones, 'Asia/Kolkata')), 'Mumbai, Maharashtra, India');
+// Two towns, one label (two Hayes in England): placeByLabel folds and takes the first
+// match, so without a hint the second can be seen in the list but never picked or shared
+// by ?t=. build.py's near() hints the smaller one with a bigger neighbour.
+{ const labels = doc.places.map((p) => L.fold(L.placeLabel(p)));
+  const dup = labels.filter((l, i) => labels.indexOf(l) !== i);
+  eq('shipped: no two towns share a label', [dup.length, dup.slice(0, 3)], [0, []]);
+  const hayes = L.matchPlaces(doc.places, 'hayes, england').map(L.placeLabel).filter((l) => l.startsWith('Hayes'));
+  eq('shipped: both Hayes listed, the smaller with its neighbour', hayes,
+    ['Hayes, England, United Kingdom', 'Hayes (near Beckenham), England, United Kingdom']);
+  const small = doc.places.find((p) => p[L.P.NAME] === 'Hayes' && p[L.P.NEAR]);
+  eq('shipped: the hinted label opens that town, not its namesake',
+    L.placeByLabel(doc.places, 'Hayes (near Beckenham), England, United Kingdom'), small);
+  eq('shipped: the bare label still opens the bigger one, as old ?t= links did',
+    L.placeByLabel(doc.places, 'Hayes, England, United Kingdom')[L.P.POP], 93928);
+  eq('shipped: enough towns are hinted for the checks above to mean something',
+    doc.places.filter((p) => p[L.P.NEAR]).length >= 50, true);
+  eq('shipped: a hint is a real town of the same country',
+    doc.places.every((p) => !p[L.P.NEAR] || doc.places.some((o) => o[L.P.NAME] === p[L.P.NEAR] && o[L.P.CN] === p[L.P.CN])), true);
+  // The coordinates near() needs are a build-time input only; none may reach the page.
+  eq('shipped: no row carries coordinates', doc.places.every((p) => p.length === 6 || (p.length === 7 && typeof p[L.P.NEAR] === 'string')), true);
+}
 const s = L.encodeState({ towns: ['Palo Alto, California, United States', 'London, England, United Kingdom'], ymd: '2026-11-02' });
 eq('url round trip', L.decodeState(s), { towns: ['Palo Alto, California, United States', 'London, England, United Kingdom'], ymd: '2026-11-02', work: null });
 eq('url: a bad date is dropped, towns capped', L.decodeState('?d=2026-13-99&' + 'abcdefgh'.split('').map((x) => `t=${x}`).join('&')),
