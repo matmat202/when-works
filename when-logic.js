@@ -203,6 +203,33 @@ export function nextWork(towns, ymd, days = AHEAD, work = WORK) {
   return null;
 }
 
+// For towns whose `work` hours never meet in the look-ahead: the picker's narrowest hours that
+// contain `work` and do meet, from ymd itself on: { work, ymd, g, b }, or null when even the
+// longest hours offered do not, which is then the honest answer to "try longer hours?".
+// Narrowest = fewest hours added; on a tie, the later start (staying late over starting early).
+export function widerWork(towns, ymd, work = WORK, days = AHEAD) {
+  const first = (wk) => {
+    for (let i = 0; i <= days; i++) {
+      const d = addDays(ymd, i), g = grid(towns, d, wk), b = best(g);
+      if (b.kind === 'work') return { work: wk, ymd: d, g, b };
+    }
+    return null;
+  };
+  // Wider hours only add working hours, so if the widest meets nowhere, nothing narrower does.
+  if (!first([WORK_STARTS[0], WORK_ENDS.at(-1)])) return null;
+  let pick = null;
+  for (const s of WORK_STARTS) for (const e of WORK_ENDS) {
+    if (s > work[0] || e < work[1] || (s === work[0] && e === work[1])) continue;
+    const r = first([s, e]);
+    if (!r) continue;
+    r.added = work[0] - s + e - work[1];
+    if (!pick || r.added < pick.added || (r.added === pick.added && s > pick.work[0])) pick = r;
+  }
+  if (!pick) return null;
+  const { added, ...out } = pick;
+  return out;
+}
+
 // ---- clock changes -------------------------------------------------------------------
 
 // Every instant in [from, to) where a zone's offset changes: [{ ms, before, after }].

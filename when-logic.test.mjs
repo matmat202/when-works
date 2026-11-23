@@ -339,5 +339,27 @@ eq('Shanghai works Saturday 10 Oct 2026', L.classify({ ymd: '2026-10-10', min: 6
   eq('hours: url hours the picker does not offer are dropped', ['3-18', '8-23', '18-8', '8', 'x-y', '9-17'].map((w) => L.decodeState(`?w=${w}`).work), [null, null, null, null, null, [540, 1020]]);
 }
 
+// ---- never "try longer hours" blind: the narrowest hours that work (widerWork) ------------
+{
+  const MTY = town('Monterrey, Nuevo León, Mexico');
+  const ww = (ts, d, w) => { const r = L.widerWork(ts, d, w); return r && [r.work.map((m) => m / 60), r.ymd, r.b.runs]; };
+  // Palo Alto's 9 am is London's 5 pm: one more hour at either end gives one shared hour. 8-to-5
+  // and 9-to-6 add one hour each; the tie goes to the later start.
+  eq('wider: Palo Alto/London from Saturday -> 9 to 6 on Monday', ww([PA, LDN], '2026-11-21'), [[9, 18], '2026-11-23', [[9, 9]]]);
+  eq('wider: the day shown counts when it is a working day', ww([PA, LDN], '2026-11-18')?.[1], '2026-11-18');
+  // From 10 to 5: 9-to-6, 10-to-7 and 8-to-5 each add two hours and meet; 10-to-6 and 9-to-5 add
+  // less and do not. Containing 10-to-5 rules out 11 am starts; the later start wins.
+  eq('wider: contains the hours chosen, fewest added, later start', ww([PA, LDN], '2026-11-18', [600, 1020])?.[0], [10, 19]);
+  eq('wider: the returned grid is its day\'s at its hours', L.widerWork([PA, LDN], '2026-11-21').g[9].cells.map((c) => c.cls), ['work', 'work']);
+  // Monterrey/London/Tokyo, the live page's default trio: from 7 am to 9 pm, London and Tokyo
+  // meet 7 am - 12 pm UTC and Monterrey only from 1 pm UTC. No hours offered help.
+  eq('wider: Monterrey/London/Tokyo never meet at any hours offered', ww([MTY, LDN, TYO], '2026-11-22'), null);
+  eq('wider: Palo Alto/London/Tokyo neither', ww([PA, LDN, TYO], '2026-11-16'), null);
+  eq('wider: already the longest hours -> null', ww([PA, LDN], '2026-11-21', [420, 1260]), null);
+  // The look-ahead is AHEAD days after the day shown, like nextWork's: Saturday + 2 reaches Monday.
+  eq('wider: the look-ahead reaches its last day', L.widerWork([PA, LDN], '2026-11-21', L.WORK, 2)?.ymd, '2026-11-23');
+  eq('wider: and stops there', L.widerWork([PA, LDN], '2026-11-21', L.WORK, 1), null);
+}
+
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

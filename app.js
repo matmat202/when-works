@@ -91,9 +91,16 @@ function drawBest(g, b) {
   // day has one, a tap away, or that none comes, so nobody pages through days that never will.
   if (n > 1 && b.kind !== 'work') {
     const nw = L.nextWork(state.towns, state.ymd, L.AHEAD, state.work);
-    const longest = state.work[0] === L.WORK_STARTS[0] && state.work[1] === L.WORK_ENDS.at(-1);
-    if (!nw) kids.push(el('p', { class: 'next' }, `No day in the next ${L.AHEAD === 14 ? 'two weeks' : `${L.AHEAD} days`} has an hour when everyone is at work: their working hours do not overlap, so the hours above are the best these towns get${longest ? '' : ', unless someone starts earlier or stays later: try longer working hours above'}.`));
-    else {
+    const weeks = L.AHEAD === 14 ? 'two weeks' : `${L.AHEAD} days`;
+    // Never "try longer hours" blind: name the narrowest hours that work, or say none do.
+    const ww = nw ? null : L.widerWork(state.towns, state.ymd, state.work);
+    if (!nw && !ww) kids.push(el('p', { class: 'next' }, `No day in the next ${weeks} has an hour when everyone is at work, even from ${L.time(L.WORK_STARTS[0])} to ${L.time(L.WORK_ENDS.at(-1))}, the longest working hours offered: the hours above are the best these towns get.`));
+    else if (!nw) {
+      const r = [...ww.b.runs].sort((x, y) => len(y) - len(x) || x[0] - y[0])[0];
+      const go = el('button', { type: 'button', id: 'goWider' }, `Use ${hours(ww.work)}${ww.ymd === state.ymd ? '' : `, ${L.dateWords(ww.ymd)}`}`);
+      go.addEventListener('click', () => { state.work = ww.work; state.ymd = ww.ymd; draw(); });
+      kids.push(el('p', { class: 'next' }, `No day in the next ${weeks} has an hour when everyone is at work ${hours(state.work)}. From ${hours(ww.work)}, ${ww.ymd === state.ymd ? 'this day' : L.dateWords(ww.ymd)} has ${hrs(r)}: ${span(ww.g, r, 0)} in ${home}. `, go));
+    } else {
       const r = [...nw.b.runs].sort((x, y) => len(y) - len(x) || x[0] - y[0])[0];
       const go = el('button', { type: 'button', id: 'goNext' }, `Show ${L.dateWords(nw.ymd)}`);
       go.addEventListener('click', () => { state.ymd = nw.ymd; draw(); });
