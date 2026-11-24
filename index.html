@@ -118,6 +118,10 @@ input,select,textarea{font-size:16px!important}
     <label>Working hours <select id="workFrom" aria-label="Work starts, in each town's own time"></select></label>
     <label>to <select id="workTo" aria-label="Work ends, in each town's own time"></select></label>
   </div>
+  <div class="row work">
+    <label>Awake from <select id="awakeFrom" aria-label="Awake from, in each town's own time"></select></label>
+    <label>to <select id="awakeTo" aria-label="Asleep from, in each town's own time"></select></label>
+  </div>
 </section>
 
 <section class="card" id="best" aria-live="polite"><p class="head">Loading the towns…</p></section>
@@ -142,7 +146,7 @@ input,select,textarea{font-size:16px!important}
   <div class="scroll"><table id="grid"></table></div>
   <div class="key">
     <span><i class="work"></i>at work (<span id="workKey">9 to 5 on a working day</span>, not a public holiday)</span>
-    <span><i class="awake"></i>awake (7 am to 11 pm)</span>
+    <span><i class="awake"></i>awake (<span id="awakeKey">7 am to 11 pm</span>)</span>
     <span><i class="sleep"></i>asleep</span>
     <span><i class="best"></i>the best hours</span>
   </div>

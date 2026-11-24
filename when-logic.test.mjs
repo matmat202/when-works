@@ -119,9 +119,9 @@ eq('biggest town in Asia/Kolkata', L.placeLabel(L.biggestIn(doc.places, doc.zone
   eq('shipped: no row carries coordinates', doc.places.every((p) => p.length === 6 || (p.length === 7 && typeof p[L.P.NEAR] === 'string')), true);
 }
 const s = L.encodeState({ towns: ['Palo Alto, California, United States', 'London, England, United Kingdom'], ymd: '2026-11-02' });
-eq('url round trip', L.decodeState(s), { towns: ['Palo Alto, California, United States', 'London, England, United Kingdom'], ymd: '2026-11-02', work: null });
+eq('url round trip', L.decodeState(s), { towns: ['Palo Alto, California, United States', 'London, England, United Kingdom'], ymd: '2026-11-02', work: null, awake: null });
 eq('url: a bad date is dropped, towns capped', L.decodeState('?d=2026-13-99&' + 'abcdefgh'.split('').map((x) => `t=${x}`).join('&')),
-  { towns: ['a', 'b', 'c', 'd', 'e', 'f'], ymd: null, work: null });
+  { towns: ['a', 'b', 'c', 'd', 'e', 'f'], ymd: null, work: null, awake: null });
 
 // ---- one hour, to a calendar ------------------------------------------------------------
 // 27 Oct 2026, 7 am in Palo Alto (PDT, -7) is 14:00 UTC: the shot's Palo Alto/London/New Delhi day.
@@ -359,6 +359,38 @@ eq('Shanghai works Saturday 10 Oct 2026', L.classify({ ymd: '2026-10-10', min: 6
   // The look-ahead is AHEAD days after the day shown, like nextWork's: Saturday + 2 reaches Monday.
   eq('wider: the look-ahead reaches its last day', L.widerWork([PA, LDN], '2026-11-21', L.WORK, 2)?.ymd, '2026-11-23');
   eq('wider: and stops there', L.widerWork([PA, LDN], '2026-11-21', L.WORK, 1), null);
+}
+
+// ---- waking hours other than 7 am to 11 pm (the page's picker, a= in the URL) -----------
+{
+  const MTY = town('Monterrey, Nuevo León, Mexico');
+  const A6 = [6 * 60, 24 * 60];
+  eq('awake: 5:59 asleep, 6 am awake, 11:59 pm awake', [359, 360, 1439].map((m) => L.classify({ min: m, wd: 2 }, wk, null, L.WORK, A6)), ['sleep', 'awake', 'awake']);
+  eq('awake: an earlier bedtime', [1259, 1260].map((m) => L.classify({ min: m, wd: 2 }, wk, null, L.WORK, [420, 1260])), ['awake', 'sleep']);
+  // A working hour before waking is asleep: the user said they are not up yet.
+  eq('awake: work before waking is sleep', L.classify({ min: 450, wd: 2 }, wk, null, [420, 1020], [480, 1380]), 'sleep');
+  eq('awake: the choices', [L.AWAKE_STARTS, L.AWAKE_ENDS].map((a) => a.map((m) => m / 60)), [[5, 6, 7, 8, 9], [21, 22, 23, 24]]);
+  eq('awake: the default is among them', L.AWAKE_STARTS.includes(L.AWAKE[0]) && L.AWAKE_ENDS.includes(L.AWAKE[1]), true);
+  // Monterrey h is London h+6 and Tokyo h+15 on 23 Nov (by hand, no clock changes near).
+  // 7 to 11: Monterrey 7 am and 4 pm, one hour each -- what the live page showed.
+  const awakeRuns = (aw) => { const b = L.best(L.grid([MTY, LDN, TYO], '2026-11-23', L.WORK, aw)); return [b.kind, b.runs]; };
+  eq('awake: Monterrey/London/Tokyo at 7 to 11', awakeRuns(L.AWAKE), ['awake', [[7, 7], [16, 16]]]);
+  eq('awake: up till midnight, two hours each', awakeRuns([420, 1440]), ['awake', [[7, 8], [16, 17]]]);
+  eq('awake: 6 am to midnight, three each', awakeRuns(A6), ['awake', [[6, 8], [15, 17]]]);
+  eq('awake: the default is 7 to 11', L.grid([MTY, TYO], '2026-11-23', L.WORK, L.AWAKE).map((r) => r.cells.map((c) => c.cls)), L.grid([MTY, TYO], '2026-11-23').map((r) => r.cells.map((c) => c.cls)));
+  // nextWork and widerWork read the waking hours too. Palo Alto 9 am is London 5 pm: at 8 to 6
+  // they meet Monday at Palo Alto 8 - 10 am, but a Palo Alto that wakes at 10 is London's 6 pm.
+  eq('awake: nextWork reads them', L.nextWork([PA, LDN], '2026-11-21', L.AHEAD, [480, 1080], [600, 1380]), null);
+  // widerWork from 9 to 5 then needs London until 7 pm, so 9 to 7 (not 9 to 6), at Palo Alto 10 am.
+  const wr = L.widerWork([PA, LDN], '2026-11-21', L.WORK, L.AHEAD, [600, 1380]);
+  eq('awake: widerWork reads them', wr && [wr.work.map((m) => m / 60), wr.ymd, wr.b.runs], [[9, 19], '2026-11-23', [[10, 10]]]);
+  const u = L.encodeState({ towns: ['x'], ymd: null, awake: A6 });
+  eq('awake: url carries a=6-24', u, '?t=x&a=6-24');
+  eq('awake: url round trip', L.decodeState(u).awake, A6);
+  eq('awake: 7 to 11 is left out of the url', L.encodeState({ towns: ['x'], ymd: null, awake: L.AWAKE }), '?t=x');
+  eq('awake: a changed start alone reaches the url', L.encodeState({ towns: ['x'], ymd: null, awake: [360, L.AWAKE[1]] }), '?t=x&a=6-23');
+  eq('awake: a changed end alone too', L.encodeState({ towns: ['x'], ymd: null, awake: [L.AWAKE[0], 1440] }), '?t=x&a=7-24');
+  eq('awake: url hours the picker does not offer are dropped', ['4-23', '7-25', '24-7', '7', 'x-y', '9-21'].map((a) => L.decodeState(`?a=${a}`).awake), [null, null, null, null, null, [540, 1260]]);
 }
 
 console.log(`${pass} passed, ${fail} failed`);

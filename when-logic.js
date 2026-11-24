@@ -12,6 +12,11 @@ export const AWAKE = [7 * 60, 23 * 60];  // 7 am to 11 pm
 // but 8 am - 6 pm gives them two.
 export const WORK_STARTS = [7, 8, 9, 10, 11].map((h) => h * 60);
 export const WORK_ENDS = [15, 16, 17, 18, 19, 20, 21].map((h) => h * 60);
+// The waking hours a page may choose instead of 7 am to 11 pm: calling home is often an early
+// riser at one end and a late night at the other. Midnight (24 * 60) is the latest end, so a
+// waking day never wraps. A working hour outside them is asleep: classify() asks that first.
+export const AWAKE_STARTS = [5, 6, 7, 8, 9].map((h) => h * 60);
+export const AWAKE_ENDS = [21, 22, 23, 24].map((h) => h * 60);
 
 const fmtCache = new Map();
 function fmt(tz) {
@@ -104,19 +109,20 @@ export function dayOff(w, weekend, hol) {
   return inWeekend(w.wd, weekend) && !(hol && hol.work.includes(w.ymd));
 }
 
-// 'work' (a working day, 9 to 5 or the hours given), 'awake' (7 am to 11 pm otherwise) or 'sleep'.
-export function classify(w, weekend, hol, work = WORK) {
-  if (w.min < AWAKE[0] || w.min >= AWAKE[1]) return 'sleep';
+// 'work' (a working day, 9 to 5 or the hours given), 'awake' (7 am to 11 pm or the hours given,
+// otherwise) or 'sleep'.
+export function classify(w, weekend, hol, work = WORK, awake = AWAKE) {
+  if (w.min < awake[0] || w.min >= awake[1]) return 'sleep';
   if (!dayOff(w, weekend, hol) && w.min >= work[0] && w.min < work[1]) return 'work';
   return 'awake';
 }
 
 // The grid: for each row, each town's wall clock and class. towns: [{ tz, weekend, hol? }].
-export function grid(towns, ymd, work = WORK) {
+export function grid(towns, ymd, work = WORK, awake = AWAKE) {
   const home = towns[0];
   return dayRows(home.tz, ymd).map((ms) => ({
     ms,
-    cells: towns.map((t) => { const w = wall(t.tz, ms); return { ...w, cls: classify(w, t.weekend, t.hol, work) }; }),
+    cells: towns.map((t) => { const w = wall(t.tz, ms); return { ...w, cls: classify(w, t.weekend, t.hol, work, awake) }; }),
   }));
 }
 
@@ -195,9 +201,9 @@ export function best(g) {
 // that has none (a weekend, a holiday): { ymd, g, b }, or null if no such day comes, which
 // for towns whose 9-to-5s never overlap is the honest answer, not a missing one.
 export const AHEAD = 14;
-export function nextWork(towns, ymd, days = AHEAD, work = WORK) {
+export function nextWork(towns, ymd, days = AHEAD, work = WORK, awake = AWAKE) {
   for (let i = 1; i <= days; i++) {
-    const d = addDays(ymd, i), g = grid(towns, d, work), b = best(g);
+    const d = addDays(ymd, i), g = grid(towns, d, work, awake), b = best(g);
     if (b.kind === 'work') return { ymd: d, g, b };
   }
   return null;
@@ -207,10 +213,10 @@ export function nextWork(towns, ymd, days = AHEAD, work = WORK) {
 // contain `work` and do meet, from ymd itself on: { work, ymd, g, b }, or null when even the
 // longest hours offered do not, which is then the honest answer to "try longer hours?".
 // Narrowest = fewest hours added; on a tie, the later start (staying late over starting early).
-export function widerWork(towns, ymd, work = WORK, days = AHEAD) {
+export function widerWork(towns, ymd, work = WORK, days = AHEAD, awake = AWAKE) {
   const first = (wk) => {
     for (let i = 0; i <= days; i++) {
-      const d = addDays(ymd, i), g = grid(towns, d, wk), b = best(g);
+      const d = addDays(ymd, i), g = grid(towns, d, wk, awake), b = best(g);
       if (b.kind === 'work') return { work: wk, ymd: d, g, b };
     }
     return null;
@@ -380,11 +386,12 @@ export const toTown = (p, zones, weekend, holidays) => ({
 // ---- the URL: ?t=Palo Alto, California, United States&t=London, …&d=2026-10-27 ----------
 
 export const MAX_TOWNS = 6;
-export function encodeState({ towns, ymd, work }) {
+export function encodeState({ towns, ymd, work, awake }) {
   const q = new URLSearchParams();
   for (const t of towns) q.append('t', t);
   if (ymd) q.set('d', ymd);
   if (work && (work[0] !== WORK[0] || work[1] !== WORK[1])) q.set('w', `${work[0] / 60}-${work[1] / 60}`);
+  if (awake && (awake[0] !== AWAKE[0] || awake[1] !== AWAKE[1])) q.set('a', `${awake[0] / 60}-${awake[1] / 60}`);
   const s = q.toString();
   return s ? `?${s}` : '';
 }
@@ -397,7 +404,10 @@ export function decodeState(search) {
   // Working hours, w=8-18: only hours the page offers, so a link cannot make 3 am a working hour.
   const w = /^(\d{1,2})-(\d{1,2})$/.exec(q.get('w') || '');
   const work = w && WORK_STARTS.includes(w[1] * 60) && WORK_ENDS.includes(w[2] * 60) ? [w[1] * 60, w[2] * 60] : null;
-  return { towns, ymd: real ? d : null, work };
+  // Waking hours, a=6-24, the same way: only the picker's, so a link cannot keep 3 am awake.
+  const a = /^(\d{1,2})-(\d{1,2})$/.exec(q.get('a') || '');
+  const awake = a && AWAKE_STARTS.includes(a[1] * 60) && AWAKE_ENDS.includes(a[2] * 60) ? [a[1] * 60, a[2] * 60] : null;
+  return { towns, ymd: real ? d : null, work, awake };
 }
 
 // ---- one hour, carried out: to a calendar, or as text -----------------------------------
